@@ -13,7 +13,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-
 //////////////////////////////////////////////////////
 // ENUMS (Gia tri co dinh)
 //////////////////////////////////////////////////////
@@ -46,18 +45,21 @@ enum DebtStatus {
 //////////////////////////////////////////////////////
 
 model User {
-  id          String   @id @default(uuid())
-  fullName    String
-  email       String   @unique
-  password    String
-  role        Role
-  isActive    Boolean  @default(true)
+  id       String  @id @default(uuid())
+  fullName String
+  email    String  @unique
+  password String
+  role     Role
+  isActive Boolean @default(true)
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  transactions   Transaction[]
-  debtPayments   DebtPayment[]
+  debtPayments DebtPayment[]
+
+  createdTransactions Transaction[] @relation("CreatedTransactions")
+  updatedTransactions Transaction[] @relation("UpdatedTransactions")
+  deletedTransactions Transaction[] @relation("DeletedTransactions")
 }
 
 //////////////////////////////////////////////////////
@@ -65,13 +67,13 @@ model User {
 //////////////////////////////////////////////////////
 
 model Category {
-  id         String        @id @default(uuid())
-  name       String
-  type       CategoryType
-  isSystem   Boolean       @default(false)
-  isActive   Boolean       @default(true)
+  id       String       @id @default(uuid())
+  name     String       @unique
+  type     CategoryType
+  isSystem Boolean      @default(false)
+  isActive Boolean      @default(true)
 
-  createdAt  DateTime      @default(now())
+  createdAt DateTime @default(now())
 
   transactions Transaction[]
 }
@@ -94,27 +96,36 @@ model Material {
 //////////////////////////////////////////////////////
 
 model Transaction {
-  id              String           @id @default(uuid())
+  id              String          @id @default(uuid())
   type            TransactionType
-  amount          Decimal          @db.Decimal(15,2)
+  amount          Decimal         @db.Decimal(15, 2)
   note            String?
+  isArchived      Boolean         @default(false)
   transactionDate DateTime
-  isArchived      Boolean          @default(false)
 
-  // RELATIONS
-  categoryId  String
-  category    Category @relation(fields: [categoryId], references: [id])
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id])
 
-  materialId  String?
-  material    Material? @relation(fields: [materialId], references: [id])
+  materialId String?
+  material   Material? @relation(fields: [materialId], references: [id])
 
   createdById String
-  createdBy   User @relation(fields: [createdById], references: [id])
+  createdBy   User   @relation("CreatedTransactions", fields: [createdById], references: [id])
 
-  createdAt   DateTime @default(now())
+  updatedById String?
+  updatedBy   User?   @relation("UpdatedTransactions", fields: [updatedById], references: [id])
+
+  deletedById String?
+  deletedBy   User?   @relation("DeletedTransactions", fields: [deletedById], references: [id])
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
 
   @@index([type])
   @@index([transactionDate])
+  @@index([categoryId])
+  @@index([isArchived])
 }
 
 //////////////////////////////////////////////////////
@@ -122,12 +133,12 @@ model Transaction {
 //////////////////////////////////////////////////////
 
 model Customer {
-  id        String   @id @default(uuid())
-  name      String
-  phone     String
-  address   String?
+  id      String  @id @default(uuid())
+  name    String
+  phone   String  @unique
+  address String?
 
-  debts     Debt[]
+  debts Debt[]
 
   createdAt DateTime @default(now())
 }
@@ -137,21 +148,24 @@ model Customer {
 //////////////////////////////////////////////////////
 
 model Debt {
-  id              String      @id @default(uuid())
-  totalAmount     Decimal     @db.Decimal(15,2)
-  remainingAmount Decimal     @db.Decimal(15,2)
+  id              String  @id @default(uuid())
+  totalAmount     Decimal @db.Decimal(15, 2)
+  remainingAmount Decimal @db.Decimal(15, 2)
 
-  status          DebtStatus  @default(UNPAID)
+  status DebtStatus @default(UNPAID)
 
-  customerId      String
-  customer        Customer @relation(fields: [customerId], references: [id])
+  dueDate DateTime?
 
-  payments        DebtPayment[]
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id])
 
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  payments DebtPayment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([status])
+  @@index([customerId])
 }
 
 //////////////////////////////////////////////////////
@@ -159,18 +173,30 @@ model Debt {
 //////////////////////////////////////////////////////
 
 model DebtPayment {
-  id           String   @id @default(uuid())
-  amount       Decimal  @db.Decimal(15,2)
-  paymentDate  DateTime
-  note         String?
+  id          String   @id @default(uuid())
+  amount      Decimal  @db.Decimal(15, 2)
+  paymentDate DateTime
+  note        String?
 
-  debtId       String
-  debt         Debt @relation(fields: [debtId], references: [id])
+  debtId String
+  debt   Debt   @relation(fields: [debtId], references: [id])
 
   receivedById String
-  receivedBy   User @relation(fields: [receivedById], references: [id])
+  receivedBy   User   @relation(fields: [receivedById], references: [id])
 
-  createdAt    DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@index([debtId])
+}
+
+//////////////////////////////////////////////////////
+// EMPLOYEE
+//////////////////////////////////////////////////////
+
+model Employee {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  role      String
+  createdAt DateTime @default(now())
 }

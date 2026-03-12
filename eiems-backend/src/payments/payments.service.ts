@@ -43,4 +43,14 @@ export class PaymentsService {
 
     return payment;
   }
+    async getPaymentsByDebt(debtId: string){
+    return this.prisma.debtPayment.findMany({
+      where:{
+        debtId: debtId
+      },
+      orderBy: {
+        createdAt : 'desc'
+      }
+    });
+  }
 }
