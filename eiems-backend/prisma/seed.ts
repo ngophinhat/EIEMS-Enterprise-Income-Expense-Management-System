@@ -1,28 +1,37 @@
-import { PrismaClient, Role, TransactionType, CategoryType, DebtStatus } from '@prisma/client'
-import { faker } from '@faker-js/faker'
+import {
+  PrismaClient,
+  Role,
+  TransactionType,
+  CategoryType,
+  DebtStatus,
+} from '@prisma/client';
 
-const prisma = new PrismaClient()
+import * as bcrypt from 'bcrypt';
+
+import { faker } from '@faker-js/faker';
+
+const prisma = new PrismaClient();
 
 async function main() {
+  const hashedPassword = await bcrypt.hash('123456', 10);
 
-  // USERS
   const users = await Promise.all(
     Array.from({ length: 5 }).map(() =>
       prisma.user.create({
         data: {
           fullName: faker.person.fullName(),
           email: faker.internet.email(),
-          password: "123456",
+          password: hashedPassword,
           role: faker.helpers.arrayElement([
             Role.OWNER,
             Role.ADMIN,
             Role.ACCOUNTANT,
-            Role.STAFF
-          ])
-        }
-      })
-    )
-  )
+            Role.STAFF,
+          ]),
+        },
+      }),
+    ),
+  );
 
   // CATEGORIES
   const categories = await Promise.all(
@@ -32,12 +41,12 @@ async function main() {
           name: faker.commerce.department() + faker.number.int(100),
           type: faker.helpers.arrayElement([
             CategoryType.INCOME,
-            CategoryType.EXPENSE
-          ])
-        }
-      })
-    )
-  )
+            CategoryType.EXPENSE,
+          ]),
+        },
+      }),
+    ),
+  );
 
   // MATERIALS
   const materials = await Promise.all(
@@ -45,11 +54,11 @@ async function main() {
       prisma.material.create({
         data: {
           name: faker.commerce.productName(),
-          unit: faker.helpers.arrayElement(["kg", "box", "piece", "liter"])
-        }
-      })
-    )
-  )
+          unit: faker.helpers.arrayElement(['kg', 'box', 'piece', 'liter']),
+        },
+      }),
+    ),
+  );
 
   // CUSTOMERS
   const customers = await Promise.all(
@@ -58,31 +67,31 @@ async function main() {
         data: {
           name: faker.person.fullName(),
           phone: faker.phone.number(),
-          address: faker.location.streetAddress()
-        }
-      })
-    )
-  )
+          address: faker.location.streetAddress(),
+        },
+      }),
+    ),
+  );
 
   // TRANSACTIONS
-  const transactions = await Promise.all(
+  await Promise.all(
     Array.from({ length: 80 }).map(() =>
       prisma.transaction.create({
         data: {
           type: faker.helpers.arrayElement([
             TransactionType.INCOME,
-            TransactionType.EXPENSE
+            TransactionType.EXPENSE,
           ]),
           amount: faker.number.int({ min: 50000, max: 5000000 }),
           note: faker.lorem.sentence(),
           transactionDate: faker.date.recent({ days: 90 }),
           categoryId: faker.helpers.arrayElement(categories).id,
           materialId: faker.helpers.arrayElement(materials).id,
-          createdById: faker.helpers.arrayElement(users).id
-        }
-      })
-    )
-  )
+          createdById: faker.helpers.arrayElement(users).id,
+        },
+      }),
+    ),
+  );
 
   // DEBTS
   const debts = await Promise.all(
@@ -94,14 +103,14 @@ async function main() {
           status: faker.helpers.arrayElement([
             DebtStatus.UNPAID,
             DebtStatus.PARTIAL,
-            DebtStatus.PAID
+            DebtStatus.PAID,
           ]),
           dueDate: faker.date.future(),
-          customerId: faker.helpers.arrayElement(customers).id
-        }
-      })
-    )
-  )
+          customerId: faker.helpers.arrayElement(customers).id,
+        },
+      }),
+    ),
+  );
 
   // DEBT PAYMENTS
   await Promise.all(
@@ -112,19 +121,28 @@ async function main() {
           paymentDate: faker.date.recent({ days: 60 }),
           note: faker.lorem.sentence(),
           debtId: faker.helpers.arrayElement(debts).id,
-          receivedById: faker.helpers.arrayElement(users).id
-        }
-      })
-    )
-  )
+          receivedById: faker.helpers.arrayElement(users).id,
+        },
+      }),
+    ),
+  );
 
-  console.log("Seed data created successfully 🚀")
+  // TAX
+  await prisma.tax.createMany({
+    data: [
+      { name: 'VAT 8%', type: 'VAT', rate: 0.08 },
+      { name: 'VAT 10%', type: 'VAT', rate: 0.1 },
+      { name: 'Thuế TNDN 20%', type: 'CORPORATE', rate: 0.2 },
+    ],
+  });
+
+  console.log('Seed data created successfully 🚀');
 }
 
-    main()
-    .catch((e) => {
-        console.error(e)
-    })
-    .finally(async () => {
-        await prisma.$disconnect()
-    })
+main()
+  .catch((e) => {
+    console.error(e);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });

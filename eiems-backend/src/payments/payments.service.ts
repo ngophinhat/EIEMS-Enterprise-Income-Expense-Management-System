@@ -7,13 +7,12 @@ export class PaymentsService {
   constructor(private prisma: PrismaService) {}
 
   async createPayment(debtId: string, amount: number, receivedById: string) {
-
     const debt = await this.prisma.debt.findUnique({
       where: { id: debtId },
     });
 
     if (!debt) {
-      throw new Error("Debt not found");
+      throw new Error('Debt not found');
     }
 
     const newRemaining = Number(debt.remainingAmount) - amount;
@@ -43,14 +42,14 @@ export class PaymentsService {
 
     return payment;
   }
-    async getPaymentsByDebt(debtId: string){
+  async getPaymentsByDebt(debtId: string) {
     return this.prisma.debtPayment.findMany({
-      where:{
-        debtId: debtId
+      where: {
+        debtId: debtId,
       },
       orderBy: {
-        createdAt : 'desc'
-      }
+        createdAt: 'desc',
+      },
     });
   }
 }

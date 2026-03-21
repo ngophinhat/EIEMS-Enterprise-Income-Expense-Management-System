@@ -6,71 +6,62 @@ export class CustomersService {
   finOne: any;
   constructor(private prisma: PrismaService) {}
 
-    async create(data: {
-    name: string;
-    phone: string;
-    address?: string;
-    }) {
+  async create(data: { name: string; phone: string; address?: string }) {
     return this.prisma.customer.create({
-        data: {
+      data: {
         name: data.name,
         phone: data.phone,
         address: data.address,
-        },
+      },
     });
-    }
+  }
   async findAll() {
     return this.prisma.customer.findMany();
   }
   async getCustomerDebts(customerId: string) {
     return this.prisma.debt.findMany({
       where: {
-        customerId: customerId
-      }
+        customerId: customerId,
+      },
     });
   }
   async findOne(id: string) {
     return this.prisma.customer.findUnique({
       where: { id },
       include: {
-        debts: true
-      }
+        debts: true,
+      },
     });
   }
 
   async update(id: string, data: any) {
-  if (data.dueDate) {
-    data.dueDate = new Date(data.dueDate);
+    if (data.dueDate) {
+      data.dueDate = new Date(data.dueDate);
+    }
+
+    return this.prisma.debt.update({
+      where: { id },
+      data: data,
+    });
   }
-  
-  return this.prisma.debt.update({
-    where: { id },
-    data: data,
-  });
-}
   async getDebtSummary(customerId: string) {
+    const debts = await this.prisma.debt.findMany({
+      where: { customerId },
+    });
 
-  const debts = await this.prisma.debt.findMany({
-    where: { customerId }
-  });
+    const totalDebt = debts.reduce((sum, d) => sum + Number(d.totalAmount), 0);
 
-  const totalDebt = debts.reduce(
-    (sum, d) => sum + Number(d.totalAmount),
-    0
-  );
+    const remainingDebt = debts.reduce(
+      (sum, d) => sum + Number(d.remainingAmount),
+      0,
+    );
 
-  const remainingDebt = debts.reduce(
-    (sum, d) => sum + Number(d.remainingAmount),
-    0
-  );
+    const totalPaid = totalDebt - remainingDebt;
 
-  const totalPaid = totalDebt - remainingDebt;
-
-  return {
-    totalDebt,
-    totalPaid,
-    remainingDebt
-  };
+    return {
+      totalDebt,
+      totalPaid,
+      remainingDebt,
+    };
+  }
 }
-}
-

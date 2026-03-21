@@ -1,9 +1,16 @@
-import { Body, Controller, Get, Post,Param, Patch, Delete } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Param,
+  Patch,
+  Delete,
+} from '@nestjs/common';
 import { CategoriesService } from './categories.service';
 
 @Controller('categories')
 export class CategoriesController {
-
   constructor(private categoriesService: CategoriesService) {}
 
   @Post()
@@ -25,5 +32,4 @@ export class CategoriesController {
   update(@Param('id') id: string, @Body() body: any) {
     return this.categoriesService.update(id, body);
   }
-
 }

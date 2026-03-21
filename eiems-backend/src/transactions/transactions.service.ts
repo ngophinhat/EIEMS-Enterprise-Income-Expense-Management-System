@@ -3,35 +3,34 @@ import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
 export class TransactionsService {
-
   constructor(private prisma: PrismaService) {}
 
   create(data: {
-    amount: number
-    type: 'INCOME' | 'EXPENSE'
-    categoryId: string
-    createdById: string
-    note?: string
-    transactionDate: Date
+    amount: number;
+    type: 'INCOME' | 'EXPENSE';
+    categoryId: string;
+    createdById: string;
+    note?: string;
+    transactionDate: Date;
   }) {
     return this.prisma.transaction.create({
-      data
+      data,
     });
   }
 
   async findAll() {
     return this.prisma.transaction.findMany({
-        where: {
-        isArchived: false
-        },
-        include: {
+      where: {
+        isArchived: false,
+      },
+      include: {
         category: true,
-        createdBy: true
-        }
+        createdBy: true,
+      },
     });
-    }
+  }
 
-async findAllArchived() {
+  async findAllArchived() {
     return this.prisma.transaction.findMany({
       where: {
         isArchived: true,
@@ -45,35 +44,45 @@ async findAllArchived() {
           select: { id: true, fullName: true },
         },
       },
-      orderBy: { 
+      orderBy: {
         createdAt: 'desc',
       },
     });
   }
-    async findOne(id: string){
-        return this.prisma.transaction.findUnique({
-            where: {id},
-            include: {
-                category: true,
-                createdBy: true,
-            }
-        });
-    }
-    async update(id: string, data: any, userId: string){
-        if(data.dueDate){
-            data.dueDate = new Date(data.dueDate)
-        };
-        const {category, reatedBy,updatedBy,...updateData} = data;
-        return this.prisma.transaction.update({
-            where: {id},
-            data:{
-                ...updateData,
-                updateById: userId
-            }
-        })
-    }
+  async findOne(id: string) {
+    return this.prisma.transaction.findUnique({
+      where: { id },
+      include: {
+        category: true,
+        createdBy: true,
+      },
+    });
+  }
+  async update(
+    id: string,
+    data: {
+      type?: 'INCOME' | 'EXPENSE';
+      amount?: number;
+      note?: string;
+      categoryId?: string;
+      materialId?: string;
+      transactionDate?: Date | string;
+    },
+    userId: string,
+  ) {
+    return this.prisma.transaction.update({
+      where: { id },
+      data: {
+        ...data,
+        ...(data.transactionDate && {
+          transactionDate: new Date(data.transactionDate),
+        }),
+        updatedById: userId,
+      },
+    });
+  }
 
-async sofDelete(id: string, userId: string) {
+  async sofDelete(id: string, userId: string) {
     return this.prisma.transaction.update({
       where: { id },
       data: {
@@ -83,5 +92,4 @@ async sofDelete(id: string, userId: string) {
       },
     });
   }
-    
 }

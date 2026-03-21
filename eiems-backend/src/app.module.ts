@@ -8,11 +8,28 @@ import { DebtsModule } from './debts/debts.module';
 import { PaymentsModule } from './payments/payments.module';
 import { ReportsModule } from './reports/reports.module';
 import { CategoriesModule } from './categories/categories.module';
-// import { EmployeesModule } from './employees/employees.module';
 import { TransactionsModule } from './transactions/transactions.module';
+import { ConfigModule } from '@nestjs/config';
+import { TaxModule } from './tax/tax.module';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
-  imports: [PrismaModule, UserModule, UsersModule, CustomersModule, DebtsModule, PaymentsModule, ReportsModule, CategoriesModule, TransactionsModule],
-  controllers : [AppController],
+  imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+    }),
+    PrismaModule,
+    UserModule,
+    UsersModule,
+    CustomersModule,
+    DebtsModule,
+    PaymentsModule,
+    ReportsModule,
+    CategoriesModule,
+    TransactionsModule,
+    TaxModule,
+    AuthModule,
+  ],
+  controllers: [AppController],
 })
 export class AppModule {}

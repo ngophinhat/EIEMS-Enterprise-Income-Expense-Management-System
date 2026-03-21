@@ -39,47 +39,47 @@ export class DebtsService {
     });
   }
 
- async getOverdueDebts() {
-  const debts = await this.prisma.debt.findMany({
-    where: {
-      dueDate: {
-        not: null,
-        lt: new Date()
+  async getOverdueDebts() {
+    const debts = await this.prisma.debt.findMany({
+      where: {
+        dueDate: {
+          not: null,
+          lt: new Date(),
+        },
+        remainingAmount: {
+          gt: 0,
+        },
       },
-      remainingAmount: {
-        gt: 0
-      }
-    },
-    include: {
-      customer: true
-    }
-  });
-  return debts.map((debts) =>{
-    const today = new Date();
-    const due = new Date(debts.dueDate!);
+      include: {
+        customer: true,
+      },
+    });
+    return debts.map((debts) => {
+      const today = new Date();
+      const due = new Date(debts.dueDate!);
 
-    const overdueDate = Math.floor(
-      (today.getTime() - due.getTime())/ (1000 * 60 * 60 * 24)
-    );
-    return {
-      ...debts,
-      overdueDate
+      const overdueDate = Math.floor(
+        (today.getTime() - due.getTime()) / (1000 * 60 * 60 * 24),
+      );
+      return {
+        ...debts,
+        overdueDate,
       };
-    })
+    });
   }
   async update(id: string, data: any) {
-  if (data.dueDate) {
-    data.dueDate = new Date(data.dueDate);
+    if (data.dueDate) {
+      data.dueDate = new Date(data.dueDate);
+    }
+
+    return this.prisma.debt.update({
+      where: { id },
+      data: data,
+    });
   }
-  
-  return this.prisma.debt.update({
-    where: { id },
-    data: data,
-  });
-}
   async remove(id: string) {
-  return this.prisma.debt.delete({
-    where: { id },
-  });
-}
+    return this.prisma.debt.delete({
+      where: { id },
+    });
+  }
 }

@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Post, Patch, Param, Delete } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Param,
+  Delete,
+} from '@nestjs/common';
 import { TransactionsService } from './transactions.service';
 
 @Controller('transactions')
@@ -22,14 +30,14 @@ export class TransactionsController {
 
   @Patch(':id')
   update(@Param('id') id: string, @Body() body: any) {
-    const userId ="some-user-Id"
+    const userId = 'some-user-Id';
     return this.transactionsService.update(id, body, userId);
   }
 
   @Delete(':id')
   remove(@Param('id') id: string, req: any) {
     const userId = req.user.id;
-    
+
     return this.transactionsService.sofDelete(id, userId);
   }
 }

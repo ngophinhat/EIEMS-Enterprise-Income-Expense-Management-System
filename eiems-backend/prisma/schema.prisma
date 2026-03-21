@@ -40,6 +40,11 @@ enum DebtStatus {
   PAID
 }
 
+enum TaxType {
+  VAT
+  CORPORATE
+}
+
 //////////////////////////////////////////////////////
 // USERS
 //////////////////////////////////////////////////////
@@ -190,13 +195,16 @@ model DebtPayment {
 }
 
 //////////////////////////////////////////////////////
-// EMPLOYEE
+// Tax
 //////////////////////////////////////////////////////
+model Tax {
+  id          String  @id @default(uuid())
+  name        String
+  type        TaxType
+  rate        Decimal @db.Decimal(5, 4)
+  description String?
+  isActive    Boolean @default(true)
 
-model Employee {
-  id        String   @id @default(uuid())
-  name      String
-  email     String   @unique
-  role      String
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
