@@ -1,12 +1,4 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Post,
-  Param,
-  Patch,
-  Delete,
-} from '@nestjs/common';
+import { Body, Controller, Get, Post, Param, Patch } from '@nestjs/common';
 import { CategoriesService } from './categories.service';
 
 @Controller('categories')
@@ -15,6 +7,7 @@ export class CategoriesController {
 
   @Post()
   create(@Body() body: any) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     return this.categoriesService.create(body);
   }
 

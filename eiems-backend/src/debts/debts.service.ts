@@ -34,7 +34,14 @@ export class DebtsService {
       where: { id },
       include: {
         customer: true,
-        payments: true,
+        payments: {
+          include: {
+            receivedBy: {
+              select: { id: true, fullName: true },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+        },
       },
     });
   }
@@ -68,12 +75,15 @@ export class DebtsService {
     });
   }
   async update(id: string, data: any) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     if (data.dueDate) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access
       data.dueDate = new Date(data.dueDate);
     }
 
     return this.prisma.debt.update({
       where: { id },
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       data: data,
     });
   }

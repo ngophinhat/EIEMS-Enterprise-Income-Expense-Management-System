@@ -29,6 +29,12 @@ enum TransactionType {
   EXPENSE
 }
 
+enum TransactionAction {
+  CREATE
+  UPDATE
+  ARCHIVE
+}
+
 enum CategoryType {
   INCOME
   EXPENSE
@@ -61,6 +67,7 @@ model User {
   updatedAt DateTime @updatedAt
 
   debtPayments DebtPayment[]
+  transactionLogs TransactionLog[]
 
   createdTransactions Transaction[] @relation("CreatedTransactions")
   updatedTransactions Transaction[] @relation("UpdatedTransactions")
@@ -84,19 +91,6 @@ model Category {
 }
 
 //////////////////////////////////////////////////////
-// MATERIALS
-//////////////////////////////////////////////////////
-
-model Material {
-  id        String   @id @default(uuid())
-  name      String
-  unit      String
-  createdAt DateTime @default(now())
-
-  transactions Transaction[]
-}
-
-//////////////////////////////////////////////////////
 // TRANSACTIONS (THU / CHI)
 //////////////////////////////////////////////////////
 
@@ -107,15 +101,16 @@ model Transaction {
   note            String?
   isArchived      Boolean         @default(false)
   transactionDate DateTime
+  logs TransactionLog[]
 
   categoryId String
   category   Category @relation(fields: [categoryId], references: [id])
 
-  materialId String?
-  material   Material? @relation(fields: [materialId], references: [id])
-
   createdById String
   createdBy   User   @relation("CreatedTransactions", fields: [createdById], references: [id])
+
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id])
 
   updatedById String?
   updatedBy   User?   @relation("UpdatedTransactions", fields: [updatedById], references: [id])
@@ -133,6 +128,30 @@ model Transaction {
   @@index([isArchived])
 }
 
+
+//////////////////////////////////////////////////////
+// TRANSACTIONLOG
+//////////////////////////////////////////////////////
+
+
+model TransactionLog {
+  id            String            @id @default(uuid())
+  action        TransactionAction
+  changedFields Json?             // { amount: { from: 500000, to: 1000000 } }
+  note          String?           // ghi chú lý do update
+
+  transactionId String
+  transaction   Transaction @relation(fields: [transactionId], references: [id])
+
+  performedById String
+  performedBy   User   @relation(fields: [performedById], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([transactionId])
+  @@index([performedById])
+}
+
 //////////////////////////////////////////////////////
 // CUSTOMERS
 //////////////////////////////////////////////////////
@@ -144,7 +163,8 @@ model Customer {
   address String?
 
   debts Debt[]
-
+  transactions Transaction[]
+  
   createdAt DateTime @default(now())
 }
 

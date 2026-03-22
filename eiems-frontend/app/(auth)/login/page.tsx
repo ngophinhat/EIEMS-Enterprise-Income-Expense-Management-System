@@ -11,20 +11,37 @@ export default function LoginPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
-  const onFinish = async (values: { email: string; password: string }) => {
-    setLoading(true);
-    try {
-      const res = await api.post<LoginResponse>('/auth/login', values);
-      localStorage.setItem('accessToken', res.data.accessToken);
-      localStorage.setItem('user', JSON.stringify(res.data.user));
-      message.success('Đăng nhập thành công!');
+const onFinish = async (values: { email: string; password: string }) => {
+  setLoading(true);
+  try {
+    const res = await api.post<LoginResponse>('/auth/login', values);
+    localStorage.setItem('accessToken', res.data.accessToken);
+    localStorage.setItem('user', JSON.stringify(res.data.user));
+    
+    message.success('Đăng nhập thành công!');
+
+    // Delay 1.5s trước khi redirect
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+
+    const role = res.data.user.role;
+    if (role === 'STAFF') {
+      router.push('/transactions');
+    } else {
       router.push('/dashboard');
-    } catch {
-      message.error('Email hoặc mật khẩu không đúng!');
-    } finally {
-      setLoading(false);
     }
-  };
+  } catch (err: unknown) {
+    const error = err as { response?: { data?: { message?: string } } };
+    const msg = error.response?.data?.message;
+
+    if (msg === 'Tài khoản đã bị vô hiệu hóa') {
+      message.error('Tài khoản của bạn đã bị tạm dừng hoạt động!', 5);
+    } else {
+      message.error('Email hoặc mật khẩu không đúng!', 5);
+    }
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">

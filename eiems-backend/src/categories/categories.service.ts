@@ -25,11 +25,14 @@ export class CategoriesService {
   }
 
   async update(id: string, data: any) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     if (data.dueDate) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument
       data.dueDate = new Date(data.dueDate);
     }
     return this.prisma.category.update({
       where: { id },
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       data,
     });
   }

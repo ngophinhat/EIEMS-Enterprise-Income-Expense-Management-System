@@ -5,17 +5,36 @@ import {
   Post,
   Patch,
   Param,
-  Delete,
+  UseGuards,
+  Request,
 } from '@nestjs/common';
+import { Role } from '@prisma/client';
 import { TransactionsService } from './transactions.service';
+import { JwtAuthGuard, RolesGuard, Roles } from '../auth/auth.guard';
 
 @Controller('transactions')
+@UseGuards(JwtAuthGuard)
 export class TransactionsController {
   constructor(private transactionsService: TransactionsService) {}
 
   @Post()
-  create(@Body() body: any) {
-    return this.transactionsService.create(body);
+  create(
+    @Body()
+    body: {
+      amount: number;
+      type: 'INCOME' | 'EXPENSE';
+      categoryId: string;
+      note?: string;
+      transactionDate: string;
+      materialId?: string;
+    },
+    @Request() req: { user: { id: string } },
+  ) {
+    return this.transactionsService.create({
+      ...body,
+      transactionDate: new Date(body.transactionDate),
+      createdById: req.user.id,
+    });
   }
 
   @Get()
@@ -23,21 +42,51 @@ export class TransactionsController {
     return this.transactionsService.findAll();
   }
 
+  @Get('archived')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ACCOUNTANT, Role.ADMIN)
+  findAllArchived() {
+    return this.transactionsService.findAllArchived();
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.transactionsService.findOne(id);
   }
 
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() body: any) {
-    const userId = 'some-user-Id';
-    return this.transactionsService.update(id, body, userId);
+  @Get(':id/logs')
+  getLogs(@Param('id') id: string) {
+    return this.transactionsService.getLogs(id);
   }
 
-  @Delete(':id')
-  remove(@Param('id') id: string, req: any) {
-    const userId = req.user.id;
+  @Patch(':id')
+  update(
+    @Param('id') id: string,
+    @Body()
+    body: {
+      type?: 'INCOME' | 'EXPENSE';
+      amount?: number;
+      note?: string;
+      categoryId?: string;
+      materialId?: string;
+      transactionDate?: string;
+    },
+    @Request() req: { user: { id: string } },
+  ) {
+    return this.transactionsService.update(id, body, req.user.id);
+  }
 
-    return this.transactionsService.sofDelete(id, userId);
+  @Patch(':id/archive')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
+  archive(@Param('id') id: string, @Request() req: { user: { id: string } }) {
+    return this.transactionsService.softDelete(id, req.user.id);
+  }
+
+  @Patch(':id/unarchive')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
+  unarchive(@Param('id') id: string, @Request() req: { user: { id: string } }) {
+    return this.transactionsService.unarchive(id, req.user.id);
   }
 }

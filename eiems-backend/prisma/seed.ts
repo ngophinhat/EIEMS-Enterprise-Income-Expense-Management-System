@@ -47,19 +47,6 @@ async function main() {
       }),
     ),
   );
-
-  // MATERIALS
-  const materials = await Promise.all(
-    Array.from({ length: 5 }).map(() =>
-      prisma.material.create({
-        data: {
-          name: faker.commerce.productName(),
-          unit: faker.helpers.arrayElement(['kg', 'box', 'piece', 'liter']),
-        },
-      }),
-    ),
-  );
-
   // CUSTOMERS
   const customers = await Promise.all(
     Array.from({ length: 20 }).map(() =>
@@ -86,7 +73,6 @@ async function main() {
           note: faker.lorem.sentence(),
           transactionDate: faker.date.recent({ days: 90 }),
           categoryId: faker.helpers.arrayElement(categories).id,
-          materialId: faker.helpers.arrayElement(materials).id,
           createdById: faker.helpers.arrayElement(users).id,
         },
       }),

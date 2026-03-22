@@ -1,11 +1,15 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { TransactionLogService } from '../transaction-log/transaction-log.service';
 
 @Injectable()
 export class TransactionsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private logService: TransactionLogService,
+  ) {}
 
-  create(data: {
+  async create(data: {
     amount: number;
     type: 'INCOME' | 'EXPENSE';
     categoryId: string;
@@ -13,51 +17,85 @@ export class TransactionsService {
     note?: string;
     transactionDate: Date;
   }) {
-    return this.prisma.transaction.create({
-      data,
+    const transaction = await this.prisma.transaction.create({ data });
+
+    await this.logService.log({
+      transactionId: transaction.id,
+      action: 'CREATE',
+      performedById: data.createdById,
+      note: 'Tạo giao dịch mới',
     });
+
+    return transaction;
   }
 
   async findAll() {
     return this.prisma.transaction.findMany({
-      where: {
-        isArchived: false,
-      },
+      where: { isArchived: false },
       include: {
         category: true,
-        createdBy: true,
+        customer: true,
+        createdBy: {
+          select: { id: true, fullName: true, role: true },
+        },
+        updatedBy: {
+          select: { id: true, fullName: true, role: true },
+        },
       },
+      orderBy: { transactionDate: 'desc' },
     });
   }
 
   async findAllArchived() {
     return this.prisma.transaction.findMany({
-      where: {
-        isArchived: true,
-      },
+      where: { isArchived: true },
       include: {
         category: true,
+        customer: true,
         createdBy: {
           select: { id: true, fullName: true },
         },
         updatedBy: {
           select: { id: true, fullName: true },
         },
+        deletedBy: {
+          select: { id: true, fullName: true },
+        },
       },
-      orderBy: {
-        createdAt: 'desc',
-      },
+      orderBy: { deletedAt: 'desc' },
     });
   }
+
   async findOne(id: string) {
-    return this.prisma.transaction.findUnique({
+    const transaction = await this.prisma.transaction.findUnique({
       where: { id },
       include: {
         category: true,
-        createdBy: true,
+        customer: true,
+        createdBy: {
+          select: { id: true, fullName: true, role: true },
+        },
+        updatedBy: {
+          select: { id: true, fullName: true, role: true },
+        },
+        logs: {
+          include: {
+            performedBy: {
+              select: { id: true, fullName: true, role: true },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+        },
       },
     });
+
+    if (!transaction) {
+      throw new NotFoundException(`Không tìm thấy giao dịch với id: ${id}`);
+    }
+
+    return transaction;
   }
+
   async update(
     id: string,
     data: {
@@ -65,12 +103,35 @@ export class TransactionsService {
       amount?: number;
       note?: string;
       categoryId?: string;
-      materialId?: string;
       transactionDate?: Date | string;
     },
     userId: string,
   ) {
-    return this.prisma.transaction.update({
+    const old = await this.findOne(id);
+
+    // Tính changedFields
+    const changedFields: Record<string, { from: unknown; to: unknown }> = {};
+    if (data.amount !== undefined && Number(old.amount) !== data.amount) {
+      changedFields.amount = { from: Number(old.amount), to: data.amount };
+    }
+    if (data.type !== undefined && old.type !== data.type) {
+      changedFields.type = { from: old.type, to: data.type };
+    }
+    if (data.note !== undefined && old.note !== data.note) {
+      changedFields.note = { from: old.note, to: data.note };
+    }
+    if (data.categoryId !== undefined && old.categoryId !== data.categoryId) {
+      changedFields.categoryId = { from: old.categoryId, to: data.categoryId };
+    }
+    if (data.transactionDate !== undefined) {
+      const newDate = new Date(data.transactionDate).toISOString();
+      const oldDate = new Date(old.transactionDate).toISOString();
+      if (oldDate !== newDate) {
+        changedFields.transactionDate = { from: oldDate, to: newDate };
+      }
+    }
+
+    const updated = await this.prisma.transaction.update({
       where: { id },
       data: {
         ...data,
@@ -80,10 +141,22 @@ export class TransactionsService {
         updatedById: userId,
       },
     });
+
+    await this.logService.log({
+      transactionId: id,
+      action: 'UPDATE',
+      changedFields,
+      performedById: userId,
+      note: 'Cập nhật giao dịch',
+    });
+
+    return updated;
   }
 
-  async sofDelete(id: string, userId: string) {
-    return this.prisma.transaction.update({
+  async softDelete(id: string, userId: string) {
+    await this.findOne(id);
+
+    const archived = await this.prisma.transaction.update({
       where: { id },
       data: {
         isArchived: true,
@@ -91,5 +164,39 @@ export class TransactionsService {
         deletedById: userId,
       },
     });
+
+    await this.logService.log({
+      transactionId: id,
+      action: 'ARCHIVE',
+      performedById: userId,
+      note: 'Lưu trữ giao dịch',
+    });
+
+    return archived;
+  }
+
+  async getLogs(transactionId: string) {
+    return this.logService.findByTransaction(transactionId);
+  }
+  async unarchive(id: string, userId: string) {
+    await this.findOne(id);
+
+    const tx = await this.prisma.transaction.update({
+      where: { id },
+      data: {
+        isArchived: false,
+        deletedAt: null,
+        deletedById: null,
+      },
+    });
+
+    await this.logService.log({
+      transactionId: id,
+      action: 'UPDATE',
+      performedById: userId,
+      note: 'Khôi phục giao dịch từ lưu trữ',
+    });
+
+    return tx;
   }
 }

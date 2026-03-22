@@ -1,12 +1,4 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Param,
-  Patch,
-  Delete,
-} from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Patch } from '@nestjs/common';
 import { CustomersService } from './customers.service';
 
 @Controller('customers')
@@ -15,6 +7,7 @@ export class CustomersController {
 
   @Post()
   create(@Body() body: any) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     return this.customersService.create(body);
   }
 
@@ -30,6 +23,7 @@ export class CustomersController {
 
   @Patch(':id')
   update(@Param('id') id: string, @Body() body: any) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     return this.customersService.update(id, body);
   }
 }
