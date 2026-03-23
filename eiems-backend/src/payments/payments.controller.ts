@@ -11,6 +11,8 @@ export class PaymentsController {
       body.debtId,
       body.amount,
       body.receivedById,
+      body.note,
+      body.paymentDate? new Date(body.paymentDate) : undefined
     );
   }
   @Get('/debt/:id')

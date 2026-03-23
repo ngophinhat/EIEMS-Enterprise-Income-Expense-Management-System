@@ -22,6 +22,21 @@ export class UsersController {
     return this.usersService.findAll();
   }
 
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.usersService.findOne(id);
+  }
+
+  @Get(':id/transactions')
+  getUserTransactions(@Param('id') id: string) {
+    return this.usersService.getUserTransactions(id);
+  }
+
+  @Get(':id/logs')
+  getUserLogs(@Param('id') id: string) {
+    return this.usersService.getUserLogs(id);
+  }
+
   @Post()
   create(@Body() body: any) {
     return this.usersService.create(body);

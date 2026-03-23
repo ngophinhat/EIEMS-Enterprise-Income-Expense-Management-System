@@ -14,16 +14,18 @@ import {
   message,
   Switch,
   Avatar,
+  Tabs,
+  Descriptions,
 } from 'antd';
 import {
   PlusOutlined,
-  UserOutlined,
+  EyeOutlined,
   SearchOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 import api from '@/lib/axios';
-import type { User, Role } from '@/types';
+import type { User, Role, Transaction } from '@/types';
 
 const { Title, Text } = Typography;
 
@@ -58,14 +60,43 @@ const getRoleOptions = (currentRole: Role) => {
 const canToggle = (currentRole: Role, targetRole: Role) => {
   if (targetRole === 'OWNER') return false;
   if (currentRole === 'OWNER') return true;
-  if (currentRole === 'ADMIN' && (targetRole === 'ACCOUNTANT' || targetRole === 'STAFF')) return true;
+  if (
+    currentRole === 'ADMIN' &&
+    (targetRole === 'ACCOUNTANT' || targetRole === 'STAFF')
+  )
+    return true;
   return false;
 };
 
+const formatCurrency = (amount: number) =>
+  new Intl.NumberFormat('vi-VN').format(amount) + 'đ';
+
+interface UserWithCount extends User {
+  _count?: { createdTransactions: number };
+}
+
+interface TransactionLog {
+  id: string;
+  action: string;
+  createdAt: string;
+  changedFields: Record<string, { from: unknown; to: unknown }>;
+  transaction?: {
+    id: string;
+    note?: string;
+    amount: number;
+    type: string;
+  };
+}
+
 export default function UsersPage() {
-  const [users, setUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<UserWithCount[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<UserWithCount | null>(null);
+  const [userTx, setUserTx] = useState<Transaction[]>([]);
+  const [userLogs, setUserLogs] = useState<TransactionLog[]>([]);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('');
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -80,12 +111,33 @@ export default function UsersPage() {
   const fetchAll = async () => {
     setLoading(true);
     try {
-      const res = await api.get<User[]>('/users');
+      const res = await api.get<UserWithCount[]>('/users');
       setUsers(res.data);
     } catch {
       message.error('Không thể tải dữ liệu!');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const openDetail = async (user: UserWithCount) => {
+    setSelectedUser(user);
+    setDetailOpen(true);
+    setDetailLoading(true);
+    setUserTx([]);
+    setUserLogs([]);
+    try {
+      const [txRes, logRes] = await Promise.all([
+        api.get<Transaction[]>(`/users/${user.id}/transactions`),
+        api.get<TransactionLog[]>(`/users/${user.id}/logs`),
+      ]);
+      setUserTx(txRes.data);
+      setUserLogs(logRes.data);
+    } catch {
+      setUserTx([]);
+      setUserLogs([]);
+    } finally {
+      setDetailLoading(false);
     }
   };
 
@@ -102,11 +154,10 @@ export default function UsersPage() {
     }
   };
 
-  const handleToggle = async (user: User) => {
-    const action = user.isActive ? 'dừng hoạt động' : 'kích hoạt';
+  const handleToggle = async (user: UserWithCount) => {
     Modal.confirm({
       title: `${user.isActive ? 'Dừng hoạt động' : 'Kích hoạt'} tài khoản?`,
-      content: `Bạn có chắc muốn ${action} tài khoản của ${user.fullName}?`,
+      content: `Bạn có chắc muốn ${user.isActive ? 'dừng hoạt động' : 'kích hoạt'} tài khoản của ${user.fullName}?`,
       okText: 'Xác nhận',
       cancelText: 'Huỷ',
       okButtonProps: { danger: user.isActive },
@@ -114,9 +165,7 @@ export default function UsersPage() {
         try {
           await api.patch(`/users/${user.id}/toggle-active`);
           message.success(
-            user.isActive
-              ? 'Đã dừng hoạt động tài khoản!'
-              : 'Đã kích hoạt tài khoản!',
+            user.isActive ? 'Đã dừng hoạt động!' : 'Đã kích hoạt!',
           );
           void fetchAll();
         } catch {
@@ -135,7 +184,7 @@ export default function UsersPage() {
     return matchSearch && matchRole;
   });
 
-  const columns: ColumnsType<User> = [
+  const columns: ColumnsType<UserWithCount> = [
     {
       title: 'Nhân viên',
       key: 'user',
@@ -174,6 +223,15 @@ export default function UsersPage() {
       ),
     },
     {
+      title: 'Số GD',
+      key: 'txCount',
+      width: 80,
+      align: 'center',
+      render: (_, record) => (
+        <Tag color="blue">{record._count?.createdTransactions ?? 0}</Tag>
+      ),
+    },
+    {
       title: 'Ngày tạo',
       dataIndex: 'createdAt',
       key: 'createdAt',
@@ -187,7 +245,8 @@ export default function UsersPage() {
       width: 130,
       render: (isActive: boolean, record) => {
         const canToggleThis =
-          currentUser && canToggle(currentUser.role, record.role) &&
+          currentUser &&
+          canToggle(currentUser.role, record.role) &&
           record.id !== currentUser.id;
         return (
           <Switch
@@ -204,39 +263,71 @@ export default function UsersPage() {
       title: 'Thao tác',
       key: 'actions',
       width: 80,
-      render: (_, record) => {
-        if (!record.isActive) {
-          return (
-            <Tag color="red" style={{ fontSize: 11 }}>
-              Đã dừng
-            </Tag>
-          );
-        }
-        return (
-          <Space>
-            <Button
-              size="small"
-              icon={<UserOutlined />}
-              onClick={() => {
-                Modal.info({
-                  title: 'Thông tin tài khoản',
-                  content: (
-                    <div style={{ marginTop: 12 }}>
-                      <p><strong>Họ tên:</strong> {record.fullName}</p>
-                      <p><strong>Email:</strong> {record.email}</p>
-                      <p><strong>Vai trò:</strong> {roleLabels[record.role]}</p>
-                      <p><strong>Ngày tạo:</strong> {dayjs(record.createdAt).format('DD/MM/YYYY')}</p>
-                      <p><strong>Trạng thái:</strong> {record.isActive ? 'Hoạt động' : 'Đã dừng'}</p>
-                    </div>
-                  ),
-                });
-              }}
-            />
-          </Space>
-        );
-      },
+      render: (_, record) => (
+        <Button
+          size="small"
+          icon={<EyeOutlined />}
+          onClick={() => void openDetail(record)}
+        />
+      ),
     },
   ];
+
+  const txColumns: ColumnsType<Transaction> = [
+    {
+      title: 'Ngày',
+      dataIndex: 'transactionDate',
+      key: 'date',
+      width: 110,
+      render: (date: string) => dayjs(date).format('DD/MM/YYYY'),
+    },
+    {
+      title: 'Loại',
+      dataIndex: 'type',
+      key: 'type',
+      width: 80,
+      render: (type: string) =>
+        type === 'INCOME' ? (
+          <Tag color="green">Thu</Tag>
+        ) : (
+          <Tag color="red">Chi</Tag>
+        ),
+    },
+    {
+      title: 'Danh mục',
+      dataIndex: ['category', 'name'],
+      key: 'category',
+      width: 120,
+    },
+    {
+      title: 'Nội dung',
+      dataIndex: 'note',
+      key: 'note',
+      ellipsis: true,
+      render: (note: string) => note || <Text type="secondary">—</Text>,
+    },
+    {
+      title: 'Số tiền',
+      dataIndex: 'amount',
+      key: 'amount',
+      align: 'right',
+      render: (amount: number, record: Transaction) => (
+        <Text
+          strong
+          style={{ color: record.type === 'INCOME' ? '#10b981' : '#ef4444' }}
+        >
+          {record.type === 'INCOME' ? '+' : '-'}
+          {formatCurrency(Number(amount))}
+        </Text>
+      ),
+    },
+  ];
+
+  const actionLabel: Record<string, string> = {
+    CREATE: 'Tạo mới',
+    UPDATE: 'Cập nhật',
+    ARCHIVE: 'Lưu trữ',
+  };
 
   return (
     <div>
@@ -361,6 +452,177 @@ export default function UsersPage() {
             />
           </Form.Item>
         </Form>
+      </Modal>
+
+      {/* Detail Modal */}
+      <Modal
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <Avatar
+              size={40}
+              style={{
+                background: selectedUser
+                  ? roleColors[selectedUser.role]
+                  : '#94a3b8',
+              }}
+            >
+              {selectedUser?.fullName.charAt(0).toUpperCase()}
+            </Avatar>
+            <div>
+              <div style={{ fontWeight: 700 }}>{selectedUser?.fullName}</div>
+              <div
+                style={{ fontSize: 12, color: '#94a3b8', fontWeight: 400 }}
+              >
+                {selectedUser ? roleLabels[selectedUser.role] : ''}
+              </div>
+            </div>
+          </div>
+        }
+        open={detailOpen}
+        onCancel={() => setDetailOpen(false)}
+        footer={null}
+        width={820}
+      >
+        {selectedUser && (
+          <div>
+            {/* Info */}
+            <Descriptions
+              bordered
+              size="small"
+              column={2}
+              style={{ marginBottom: 16 }}
+            >
+              <Descriptions.Item label="Email">
+                {selectedUser.email}
+              </Descriptions.Item>
+              <Descriptions.Item label="Vai trò">
+                <Tag color={roleColors[selectedUser.role]}>
+                  {roleLabels[selectedUser.role]}
+                </Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label="Trạng thái">
+                <Tag color={selectedUser.isActive ? 'green' : 'red'}>
+                  {selectedUser.isActive ? 'Hoạt động' : 'Đã dừng'}
+                </Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label="Ngày tạo">
+                {dayjs(selectedUser.createdAt).format('DD/MM/YYYY')}
+              </Descriptions.Item>
+              <Descriptions.Item label="Tổng giao dịch">
+                <Tag color="blue">
+                  {selectedUser._count?.createdTransactions ?? 0}
+                </Tag>
+              </Descriptions.Item>
+            </Descriptions>
+
+            {/* Tabs */}
+            <Tabs
+              defaultActiveKey="transactions"
+              items={[
+                {
+                  key: 'transactions',
+                  label: `Giao dịch đã tạo (${userTx.length})`,
+                  children: (
+                    <Table
+                      columns={txColumns}
+                      dataSource={userTx}
+                      rowKey="id"
+                      loading={detailLoading}
+                      size="small"
+                      pagination={{ pageSize: 5 }}
+                    />
+                  ),
+                },
+                {
+                  key: 'logs',
+                  label: `Lịch sử chỉnh sửa (${userLogs.length})`,
+                  children: (
+                    <div style={{ maxHeight: 320, overflowY: 'auto' }}>
+                      {detailLoading ? null : userLogs.length === 0 ? (
+                        <Text type="secondary">Chưa có lịch sử chỉnh sửa</Text>
+                      ) : (
+                        userLogs.map((log) => (
+                          <div
+                            key={log.id}
+                            style={{
+                              borderLeft: '3px solid #6366f1',
+                              paddingLeft: 12,
+                              marginBottom: 12,
+                              paddingBottom: 8,
+                              borderBottom: '1px solid #f1f5f9',
+                            }}
+                          >
+                            <div
+                              style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                marginBottom: 4,
+                              }}
+                            >
+                              <Space>
+                                <Tag color="purple">
+                                  {actionLabel[log.action] ?? log.action}
+                                </Tag>
+                                {log.transaction && (
+                                  <Text
+                                    style={{
+                                      fontSize: 12,
+                                      color: '#64748b',
+                                    }}
+                                  >
+                                    {log.transaction.note ??
+                                      formatCurrency(
+                                        Number(log.transaction.amount),
+                                      )}
+                                  </Text>
+                                )}
+                              </Space>
+                              <Text type="secondary" style={{ fontSize: 12 }}>
+                                {dayjs(log.createdAt).format(
+                                  'DD/MM/YYYY HH:mm',
+                                )}
+                              </Text>
+                            </div>
+                            {log.changedFields &&
+                              Object.keys(log.changedFields).length > 0 && (
+                                <div>
+                                  {Object.entries(log.changedFields).map(
+                                    ([field, val]) => {
+                                      const { from, to } = val as {
+                                        from: unknown;
+                                        to: unknown;
+                                      };
+                                      return (
+                                        <div
+                                          key={field}
+                                          style={{ fontSize: 12 }}
+                                        >
+                                          <Text type="secondary">
+                                            {field}:{' '}
+                                          </Text>
+                                          <Text delete type="danger">
+                                            {String(from)}
+                                          </Text>
+                                          {' → '}
+                                          <Text type="success">
+                                            {String(to)}
+                                          </Text>
+                                        </div>
+                                      );
+                                    },
+                                  )}
+                                </div>
+                              )}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  ),
+                },
+              ]}
+            />
+          </div>
+        )}
       </Modal>
     </div>
   );

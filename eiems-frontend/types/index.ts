@@ -23,6 +23,7 @@ export interface LoginResponse {
 
 // Transaction
 export interface Transaction {
+  customer: any;
   id: string;
   type: TransactionType;
   amount: number;

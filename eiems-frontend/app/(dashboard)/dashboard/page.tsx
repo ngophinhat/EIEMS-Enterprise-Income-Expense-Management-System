@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Row, Col, Spin, Typography, Button, Dropdown } from 'antd';
 import {
   PlusOutlined,
@@ -23,6 +23,7 @@ import {
 import api from '@/lib/axios';
 import type { Dashboard, Transaction, Role } from '@/types';
 import { useRouter } from 'next/navigation';
+import dayjs from 'dayjs';
 
 const { Title, Text } = Typography;
 
@@ -39,21 +40,29 @@ const MONTHS = [
 ];
 const PIE_COLORS = ['#6366f1', '#f59e0b', '#10b981', '#94a3b8'];
 
+interface PeriodReport {
+  totalIncome: number;
+  totalExpense: number;
+  profit: number;
+}
+
 export default function DashboardPage() {
   const router = useRouter();
-  const [data, setData] = useState<Dashboard | null>(null);
+  const [dashData, setDashData] = useState<Dashboard | null>(null);
+  const [periodData, setPeriodData] = useState<PeriodReport | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [periodLoading, setPeriodLoading] = useState(false);
   const [period, setPeriod] = useState<'month' | 'quarter' | 'year'>('month');
   const [currentUser, setCurrentUser] = useState<{
     id: string;
     role: Role;
   } | null>(null);
 
+  // Fetch dashboard tổng quan (1 lần)
   useEffect(() => {
     const stored = localStorage.getItem('user');
     if (stored)
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setCurrentUser(JSON.parse(stored) as { id: string; role: Role });
 
     Promise.all([
@@ -61,12 +70,44 @@ export default function DashboardPage() {
       api.get<Transaction[]>('/transactions'),
     ])
       .then(([dashRes, txRes]) => {
-        setData(dashRes.data);
+        setDashData(dashRes.data);
         setTransactions(txRes.data.slice(0, 5));
       })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
+
+  // Fetch data theo period
+  const fetchPeriodData = useCallback(async (p: 'month' | 'quarter' | 'year') => {
+    setPeriodLoading(true);
+    try {
+      const year = dayjs().year();
+      const month = dayjs().month() + 1;
+      const quarter = Math.ceil(month / 3);
+
+      let res;
+      if (p === 'month') {
+        res = await api.get<PeriodReport>(
+          `/reports/month?year=${year}&month=${month}`,
+        );
+      } else if (p === 'quarter') {
+        res = await api.get<PeriodReport>(
+          `/reports/quarter?year=${year}&quarter=${quarter}`,
+        );
+      } else {
+        res = await api.get<PeriodReport>(`/reports/year?year=${year}`);
+      }
+      setPeriodData(res.data);
+    } catch {
+      setPeriodData(null);
+    } finally {
+      setPeriodLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void fetchPeriodData(period);
+  }, [period, fetchPeriodData]);
 
   if (loading) {
     return (
@@ -84,9 +125,11 @@ export default function DashboardPage() {
   }
 
   const isOwner = currentUser?.role === 'OWNER';
-  const income = data?.totalIncome ?? 0;
-  const expense = data?.totalExpense ?? 0;
-  const profit = data?.profit ?? 0;
+
+  // Dùng periodData nếu có, fallback về dashData
+  const income = periodData?.totalIncome ?? dashData?.totalIncome ?? 0;
+  const expense = periodData?.totalExpense ?? dashData?.totalExpense ?? 0;
+  const profit = periodData?.profit ?? dashData?.profit ?? 0;
 
   const chartData = MONTHS.map((month, i) => ({
     month,
@@ -97,11 +140,17 @@ export default function DashboardPage() {
   const pieData = [
     { name: 'Thu nhập', value: income },
     { name: 'Chi tiêu', value: expense },
-    { name: 'Công nợ', value: data?.totalDebts ?? 0 },
+    { name: 'Công nợ', value: dashData?.totalDebts ?? 0 },
     { name: 'Khác', value: Math.abs(profit) * 0.1 },
   ];
 
   const totalPie = pieData.reduce((a, b) => a + b.value, 0);
+
+  const periodLabel = {
+    month: 'Tháng này',
+    quarter: 'Quý này',
+    year: 'Năm này',
+  }[period];
 
   return (
     <div style={{ padding: '4px 0' }}>
@@ -124,7 +173,7 @@ export default function DashboardPage() {
             Tổng quan thu chi
           </Title>
           <Text style={{ color: '#94a3b8', fontSize: 13 }}>
-            Thống kê tài chính của bạn tính đến ngày{' '}
+            Thống kê tài chính — {periodLabel} •{' '}
             {new Date().toLocaleDateString('vi-VN')}
           </Text>
         </div>
@@ -138,18 +187,20 @@ export default function DashboardPage() {
               ],
               onClick: ({ key }) =>
                 setPeriod(key as 'month' | 'quarter' | 'year'),
+              selectedKeys: [period],
             }}
             trigger={['click']}
           >
-            <Button icon={<CalendarOutlined />} style={{ borderRadius: 8 }}>
-              {{ month: 'Tháng này', quarter: 'Quý này', year: 'Năm này' }[
-                period
-              ]}
+            <Button
+              icon={<CalendarOutlined />}
+              loading={periodLoading}
+              style={{ borderRadius: 8 }}
+            >
+              {periodLabel}
               <DownOutlined style={{ fontSize: 11, marginLeft: 2 }} />
             </Button>
           </Dropdown>
 
-          {/* Ẩn button thêm giao dịch với OWNER */}
           {!isOwner && (
             <Button
               type="primary"
@@ -205,7 +256,7 @@ export default function DashboardPage() {
               }}
             />
             <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 13 }}>
-              Tổng số dư
+              Tổng số dư — {periodLabel}
             </Text>
             <div
               style={{
@@ -215,7 +266,7 @@ export default function DashboardPage() {
                 margin: '8px 0 16px',
               }}
             >
-              {formatCurrency(profit)}
+              {periodLoading ? '...' : formatCurrency(profit)}
             </div>
             <div
               style={{
@@ -230,8 +281,8 @@ export default function DashboardPage() {
               <ArrowUpOutlined style={{ color: 'white', fontSize: 11 }} />
               <span style={{ color: 'white', fontSize: 12 }}>
                 {profit >= 0 ? '+' : ''}
-                {income > 0 ? ((profit / income) * 100).toFixed(1) : '0'}% so
-                với tháng trước
+                {income > 0 ? ((profit / income) * 100).toFixed(1) : '0'}%
+                lợi nhuận
               </span>
             </div>
           </div>
@@ -248,7 +299,9 @@ export default function DashboardPage() {
               minHeight: 140,
             }}
           >
-            <Text style={{ color: '#94a3b8', fontSize: 13 }}>Tổng thu nhập</Text>
+            <Text style={{ color: '#94a3b8', fontSize: 13 }}>
+              Tổng thu nhập — {periodLabel}
+            </Text>
             <div
               style={{
                 fontSize: 24,
@@ -257,11 +310,11 @@ export default function DashboardPage() {
                 margin: '8px 0 12px',
               }}
             >
-              {formatCurrency(income)}
+              {periodLoading ? '...' : formatCurrency(income)}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               <ArrowUpOutlined style={{ color: '#10b981', fontSize: 12 }} />
-              <Text style={{ color: '#10b981', fontSize: 13 }}>+5.2%</Text>
+              <Text style={{ color: '#10b981', fontSize: 13 }}>Thu nhập kỳ này</Text>
             </div>
           </div>
         </Col>
@@ -277,7 +330,9 @@ export default function DashboardPage() {
               minHeight: 140,
             }}
           >
-            <Text style={{ color: '#94a3b8', fontSize: 13 }}>Tổng chi tiêu</Text>
+            <Text style={{ color: '#94a3b8', fontSize: 13 }}>
+              Tổng chi tiêu — {periodLabel}
+            </Text>
             <div
               style={{
                 fontSize: 24,
@@ -286,11 +341,11 @@ export default function DashboardPage() {
                 margin: '8px 0 12px',
               }}
             >
-              {formatCurrency(expense)}
+              {periodLoading ? '...' : formatCurrency(expense)}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               <ArrowDownOutlined style={{ color: '#ef4444', fontSize: 12 }} />
-              <Text style={{ color: '#ef4444', fontSize: 13 }}>-2.1%</Text>
+              <Text style={{ color: '#ef4444', fontSize: 13 }}>Chi tiêu kỳ này</Text>
             </div>
           </div>
         </Col>
@@ -412,7 +467,7 @@ export default function DashboardPage() {
               Phân loại chi tiêu
             </Title>
             <Text style={{ color: '#94a3b8', fontSize: 12 }}>
-              Dựa trên {data?.totalCustomers} khách hàng
+              Dựa trên {dashData?.totalCustomers} khách hàng
             </Text>
             <div style={{ position: 'relative', marginTop: 8 }}>
               <ResponsiveContainer width="100%" height={160}>

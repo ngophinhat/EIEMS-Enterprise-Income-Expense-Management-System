@@ -35,9 +35,14 @@ const { RangePicker } = DatePicker;
 const formatCurrency = (amount: number) =>
   new Intl.NumberFormat('vi-VN').format(amount) + 'đ';
 
-const canArchive = (role: Role) => role === 'ADMIN';
-const canEdit = (role: Role) =>
+// Phân quyền
+const canCreate = (role: Role) =>
   ['ADMIN', 'ACCOUNTANT', 'STAFF'].includes(role);
+const canUpdate = (role: Role) =>
+  ['ADMIN', 'ACCOUNTANT', 'STAFF'].includes(role);
+const canArchive = (role: Role) =>
+  ['ADMIN', 'ACCOUNTANT'].includes(role);
+const isReadOnly = (role: Role) => role === 'OWNER';
 
 export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -78,22 +83,31 @@ export default function TransactionsPage() {
       setCurrentUser(
         JSON.parse(stored) as { id: string; role: Role; fullName: string },
       );
-    void fetchAll();
+    void fetchAll(
+      stored
+        ? (JSON.parse(stored) as { role: Role }).role
+        : 'STAFF',
+    );
   }, []);
 
-  const fetchAll = async () => {
+  const fetchAll = async (role?: Role) => {
+    const currentRole = role ?? currentUser?.role ?? 'STAFF';
     setLoading(true);
     try {
-      const [txRes, archRes, catRes, cusRes] = await Promise.all([
+      const [txRes, catRes, cusRes] = await Promise.all([
         api.get<Transaction[]>('/transactions'),
-        api.get<Transaction[]>('/transactions/archived'),
         api.get<Category[]>('/categories'),
         api.get<Customer[]>('/customers'),
       ]);
       setTransactions(txRes.data);
-      setArchived(archRes.data);
       setCategories(catRes.data);
       setCustomers(cusRes.data);
+
+      // Chỉ fetch archived nếu có quyền
+      if (canArchive(currentRole)) {
+        const archRes = await api.get<Transaction[]>('/transactions/archived');
+        setArchived(archRes.data);
+      }
     } catch {
       message.error('Không thể tải dữ liệu!');
     } finally {
@@ -269,18 +283,22 @@ export default function TransactionsPage() {
       width: 120,
       render: (_, record) => (
         <Space>
+          {/* Tất cả đều xem được */}
           <Button
             size="small"
             icon={<EyeOutlined />}
             onClick={() => void openDetail(record)}
           />
-          {canEdit(currentUser?.role ?? 'STAFF') && (
-            <Button
-              size="small"
-              icon={<EditOutlined />}
-              onClick={() => openEdit(record)}
-            />
-          )}
+          {/* STAFF, ACCOUNTANT, ADMIN mới edit được */}
+          {canUpdate(currentUser?.role ?? 'STAFF') &&
+            !isReadOnly(currentUser?.role ?? 'STAFF') && (
+              <Button
+                size="small"
+                icon={<EditOutlined />}
+                onClick={() => openEdit(record)}
+              />
+            )}
+          {/* Chỉ ADMIN và ACCOUNTANT mới lưu trữ được */}
           {canArchive(currentUser?.role ?? 'STAFF') && (
             <Button
               size="small"
@@ -348,7 +366,14 @@ export default function TransactionsPage() {
       </div>
 
       {/* Filters */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
+      <div
+        style={{
+          display: 'flex',
+          gap: 10,
+          marginBottom: 16,
+          flexWrap: 'wrap',
+        }}
+      >
         <Input
           placeholder="Tìm kiếm..."
           prefix={<SearchOutlined />}
@@ -378,7 +403,8 @@ export default function TransactionsPage() {
             )
           }
         />
-        {canEdit(currentUser?.role ?? 'STAFF') && (
+        {/* Chỉ STAFF, ACCOUNTANT, ADMIN mới tạo được */}
+        {canCreate(currentUser?.role ?? 'STAFF') && (
           <Button
             type="primary"
             icon={<PlusOutlined />}
@@ -412,6 +438,7 @@ export default function TransactionsPage() {
               />
             ),
           },
+          // Chỉ ADMIN và ACCOUNTANT mới thấy tab lưu trữ
           ...(canArchive(currentUser?.role ?? 'STAFF')
             ? [
                 {
@@ -479,31 +506,31 @@ export default function TransactionsPage() {
               placeholder="VD: 500000"
             />
           </Form.Item>
-          <Form.Item
-            name="categoryId"
-            label="Danh mục"
-            rules={[{ required: true, message: 'Chọn danh mục!' }]}
-          >
+          <Form.Item name="categoryId" label="Danh mục">
             <Select
+              showSearch
               options={categories
                 .filter((c) => !selectedType || c.type === selectedType)
                 .map((c) => ({ value: c.id, label: c.name }))}
-              placeholder={
-                selectedType
-                  ? 'Chọn danh mục'
-                  : 'Chọn loại giao dịch trước'
-              }
+              placeholder={selectedType ? 'Chọn danh mục' : 'Chọn loại giao dịch trước'}
               disabled={!selectedType}
+              filterOption={(input, option) =>
+                (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+              }
             />
           </Form.Item>
           <Form.Item name="customerId" label="Khách hàng">
             <Select
+              showSearch
               options={customers.map((c) => ({
                 value: c.id,
                 label: c.name,
               }))}
-              placeholder="Chọn khách hàng (tuỳ chọn)"
+              placeholder="Tìm hoặc chọn khách hàng (tuỳ chọn)"
               allowClear
+              filterOption={(input, option) =>
+                (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+              }
             />
           </Form.Item>
           <Form.Item

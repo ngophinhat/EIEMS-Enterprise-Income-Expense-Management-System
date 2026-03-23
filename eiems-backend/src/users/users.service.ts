@@ -21,8 +21,59 @@ export class UsersService {
         role: true,
         isActive: true,
         createdAt: true,
+        _count: {
+          select: { createdTransactions: true },
+        },
       },
       orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async findOne(id: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        role: true,
+        isActive: true,
+        createdAt: true,
+        _count: {
+          select: { createdTransactions: true },
+        },
+      },
+    });
+    if (!user) throw new NotFoundException('Không tìm thấy tài khoản!');
+    return user;
+  }
+
+  async getUserTransactions(id: string) {
+    return this.prisma.transaction.findMany({
+      where: { createdById: id, isArchived: false },
+      include: {
+        category: true,
+        customer: { select: { id: true, name: true } },
+      },
+      orderBy: { transactionDate: 'desc' },
+    });
+  }
+
+  async getUserLogs(id: string) {
+    return this.prisma.transactionLog.findMany({
+      where: { performedById: id },
+      include: {
+        transaction: {
+          select: {
+            id: true,
+            note: true,
+            amount: true,
+            type: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
     });
   }
 
@@ -57,19 +108,14 @@ export class UsersService {
 
   async toggleActive(id: string, currentUserId: string, currentRole: Role) {
     const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) throw new NotFoundException('Không tìm thấy tài khoản!');
 
-    if (!user) {
-      throw new NotFoundException('Không tìm thấy tài khoản!');
-    }
-
-    // Không tự tắt chính mình
     if (id === currentUserId) {
       throw new ForbiddenException(
         'Không thể tắt hoạt động tài khoản của chính mình!',
       );
     }
 
-    // ADMIN không được tắt OWNER hoặc ADMIN khác
     if (
       currentRole === Role.ADMIN &&
       (user.role === Role.OWNER || user.role === Role.ADMIN)
