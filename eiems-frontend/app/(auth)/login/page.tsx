@@ -1,103 +1,131 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { Form, Input, Button, message } from 'antd';
-import { UserOutlined, LockOutlined } from '@ant-design/icons';
-import { useRouter } from 'next/navigation';
-import api from '@/lib/axios';
-import type { LoginResponse } from '@/types';
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Form, Input, Button, Card, Typography, message } from "antd";
+import { UserOutlined, LockOutlined } from "@ant-design/icons";
+import { authApi } from "../../../lib/axios";
+
+const { Title, Text } = Typography;
 
 export default function LoginPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
-const onFinish = async (values: { email: string; password: string }) => {
-  setLoading(true);
-  try {
-    const res = await api.post<LoginResponse>('/auth/login', values);
-    localStorage.setItem('accessToken', res.data.accessToken);
-    localStorage.setItem('user', JSON.stringify(res.data.user));
-    
-    message.success('Đăng nhập thành công!');
+  const handleLogin = async (values: { email: string; password: string }) => {
+    setLoading(true);
+    try {
+      const res = await authApi.login(values.email, values.password);
+      const { accessToken, user } = res.data;
+      localStorage.setItem("token", accessToken);
+      localStorage.setItem("user", JSON.stringify(user));
 
-    // Delay 1.5s trước khi redirect
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-
-    const role = res.data.user.role;
-    if (role === 'STAFF') {
-      router.push('/transactions');
-    } else {
-      router.push('/dashboard');
+      // Redirect theo role
+      if (user.role === "STAFF") {
+        router.push("/sales-orders");
+      } else {
+        router.push("/dashboard");
+      }
+    } catch (e) {
+      if (e && typeof e === 'object' && 'response' in e) {
+        const axiosErr = e as { response?: { data?: { message?: string }; status?: number } };
+        const msg = axiosErr.response?.data?.message ?? 'Đăng nhập thất bại';
+        void message.error(Array.isArray(msg) ? msg[0] : msg);
+      } else {
+        void message.error('Không thể kết nối server');
+      }
+    }finally {
+      setLoading(false);
     }
-  } catch (err: unknown) {
-    const error = err as { response?: { data?: { message?: string } } };
-    const msg = error.response?.data?.message;
-
-    if (msg === 'Tài khoản đã bị vô hiệu hóa') {
-      message.error('Tài khoản của bạn đã bị tạm dừng hoạt động!', 5);
-    } else {
-      message.error('Email hoặc mật khẩu không đúng!', 5);
-    }
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="bg-white rounded-2xl shadow-lg p-10 w-full max-w-md">
-        {/* Logo / Title */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 bg-blue-600 rounded-xl mb-4">
-            <span className="text-white text-2xl font-bold">E</span>
-          </div>
-          <h1 className="text-2xl font-bold text-gray-800">EIEMS</h1>
-          <p className="text-gray-500 text-sm mt-1">
-            Hệ thống quản lý thu chi doanh nghiệp
-          </p>
+    <div
+      style={{
+        minHeight: "100vh",
+        background:
+          "linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 24,
+      }}
+    >
+      <div style={{ width: "100%", maxWidth: 400 }}>
+        {/* Logo */}
+        <div style={{ textAlign: "center", marginBottom: 40 }}>
+          <div style={{ fontSize: 56, marginBottom: 12 }}>🎂</div>
+          <Title
+            level={2}
+            style={{
+              color: "#fff",
+              margin: 0,
+              fontWeight: 700,
+              letterSpacing: 1,
+            }}
+          >
+            BMSYS Bakery
+          </Title>
+          <Text style={{ color: "rgba(255,255,255,0.6)", fontSize: 13 }}>
+            Hệ thống quản lý chi tiêu tiệm bánh
+          </Text>
         </div>
 
-        {/* Form */}
-        <Form layout="vertical" onFinish={onFinish} autoComplete="off">
-          <Form.Item
-            label="Email"
-            name="email"
-            rules={[
-              { required: true, message: 'Vui lòng nhập email!' },
-              { type: 'email', message: 'Email không hợp lệ!' },
-            ]}
+        <Card
+          style={{
+            borderRadius: 16,
+            boxShadow: "0 20px 60px rgba(0,0,0,0.4)",
+            border: "none",
+          }}
+        >
+          <Title
+            level={4}
+            style={{ textAlign: "center", marginBottom: 28, color: "#1a1a2e" }}
           >
-            <Input
-              prefix={<UserOutlined className="text-gray-400" />}
-              placeholder="Nhập email"
-              size="large"
-            />
-          </Form.Item>
-
-          <Form.Item
-            label="Mật khẩu"
-            name="password"
-            rules={[{ required: true, message: 'Vui lòng nhập mật khẩu!' }]}
-          >
-            <Input.Password
-              prefix={<LockOutlined className="text-gray-400" />}
-              placeholder="Nhập mật khẩu"
-              size="large"
-            />
-          </Form.Item>
-
-          <Form.Item className="mt-6">
+            Đăng nhập
+          </Title>
+          <Form layout="vertical" onFinish={handleLogin} size="large">
+            <Form.Item
+              name="email"
+              label="Email"
+              rules={[
+                { required: true, message: "Nhập email" },
+                { type: "email", message: "Email không hợp lệ" },
+              ]}
+            >
+              <Input
+                prefix={<UserOutlined style={{ color: "#aaa" }} />}
+                placeholder="email@example.com"
+              />
+            </Form.Item>
+            <Form.Item
+              name="password"
+              label="Mật khẩu"
+              rules={[{ required: true, message: "Nhập mật khẩu" }]}
+            >
+              <Input.Password
+                prefix={<LockOutlined style={{ color: "#aaa" }} />}
+                placeholder="••••••"
+              />
+            </Form.Item>
             <Button
               type="primary"
               htmlType="submit"
-              size="large"
+              block
               loading={loading}
-              className="w-full"
+              style={{
+                background: "#1a1a2e",
+                height: 44,
+                borderRadius: 8,
+                fontSize: 15,
+                fontWeight: 600,
+                marginTop: 8,
+              }}
             >
               Đăng nhập
             </Button>
-          </Form.Item>
-        </Form>
+          </Form>
+        </Card>
       </div>
     </div>
   );

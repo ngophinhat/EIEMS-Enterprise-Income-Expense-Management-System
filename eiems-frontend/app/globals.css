@@ -1,16 +1,57 @@
+@import url("https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap");
 @import "tailwindcss";
 
 * {
-  margin: 0;
-  padding: 0;
   box-sizing: border-box;
 }
 
-html,
 body {
-  height: 100%;
-  width: 100%;
+  font-family: "Be Vietnam Pro", sans-serif;
   background: #f0f2f5;
-  color: #171717;
-  font-family: Arial, Helvetica, sans-serif;
+  margin: 0;
+}
+
+/* Ant Design overrides */
+.ant-table-thead > tr > th {
+  background: #f8f9fa !important;
+  font-weight: 600 !important;
+  font-size: 12px !important;
+  color: #6b7280 !important;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.ant-menu-dark .ant-menu-item-selected {
+  font-weight: 600;
+}
+
+.ant-card {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+/* Notification unread pulse */
+@keyframes pulse-blue {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
 }

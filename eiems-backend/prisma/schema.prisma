@@ -1,8 +1,7 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+// ============================================================
+// EIEMS - Bakery Management Schema
+// Updated: 2026
+// ============================================================
 
 generator client {
   provider = "prisma-client-js"
@@ -14,7 +13,7 @@ datasource db {
 }
 
 //////////////////////////////////////////////////////
-// ENUMS (Gia tri co dinh)
+// ENUMS
 //////////////////////////////////////////////////////
 
 enum Role {
@@ -51,6 +50,74 @@ enum TaxType {
   CORPORATE
 }
 
+// Loại bánh
+enum CakeCategory {
+  BIRTHDAY    // Bánh sinh nhật (rau câu)
+  ONG_TAO     // Cúng ông táo
+  LE          // Lễ
+  THOI_NOI    // Thôi nôi
+  PLAN        // Plan
+  TET         // Tết
+  BANH_BO     // Bánh bò
+  BANH_AN     // Bánh ăn
+}
+
+// Hình dạng bánh (chỉ sinh nhật)
+enum CakeShape {
+  ROUND   // Tròn
+  HEART   // Tim
+  SQUARE  // Vuông
+}
+
+// Kích cỡ bánh (chỉ sinh nhật) — 16 = nhỏ | 20 = vừa | 24 = lớn
+enum CakeSize {
+  SIZE_16 // Nhỏ  — Tròn/Tim: 140k | Vuông: 180k
+  SIZE_20 // Vừa  — Tròn/Tim: 160k | Vuông: 200k
+  SIZE_24 // Lớn  — Tròn/Tim: 180k | Vuông: 220k
+}
+
+// Đối tượng (chỉ sinh nhật)
+enum AgeGroup {
+  CHILD    // Trẻ con
+  ADULT    // Người lớn
+  ELDERLY  // Người cao tuổi
+}
+
+// Trạng thái đơn hàng
+enum OrderStatus {
+  PENDING           // Chờ xác nhận
+  CONFIRMED         // Đã xác nhận, đang làm
+  DELIVERED         // Đã giao
+  CANCELLED_RESALE  // Hủy - đăng bán lại
+  CANCELLED_LOSS    // Hủy - mất trắng
+  CANCELLED_CUSTOMER // Hủy - Khách không đặt nữa
+
+}
+
+// Trạng thái thanh toán
+enum PaymentStatus {
+  UNPAID  // Chưa thanh toán
+  PENDING_CONFIRM // Đã thanh toán chờ ACCOUNTANT/ADMIN xác nhận
+  PAID    // Đã thanh toán
+  DEBT    // Chuyển sang công nợ
+}
+
+// Hình thức thanh toán
+enum PaymentMethod {
+  CASH          // Tiền mặt
+  BANK_TRANSFER // Chuyển khoản
+}
+
+// Loại thông báo
+enum NotificationType {
+  NEW_ORDER       // Đơn hàng mới (STAFF tạo)
+  ORDER_CONFIRMED // Đơn đã xác nhận
+  ORDER_DELIVERED // Đã giao
+  ORDER_PAID      // Đã thanh toán
+  ORDER_CANCELLED // Đơn bị hủy / đăng bán lại
+  DEBT_CREATED    // Tạo công nợ mới
+}
+
 //////////////////////////////////////////////////////
 // USERS
 //////////////////////////////////////////////////////
@@ -66,16 +133,19 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  debtPayments DebtPayment[]
+  debtPayments    DebtPayment[]
   transactionLogs TransactionLog[]
+  notifications   Notification[]
+  salesOrders     SalesOrder[]
 
-  createdTransactions Transaction[] @relation("CreatedTransactions")
-  updatedTransactions Transaction[] @relation("UpdatedTransactions")
-  deletedTransactions Transaction[] @relation("DeletedTransactions")
+  createdTransactions  Transaction[] @relation("CreatedTransactions")
+  updatedTransactions  Transaction[] @relation("UpdatedTransactions")
+  deletedTransactions  Transaction[] @relation("DeletedTransactions")
+  confirmedOrders      SalesOrder[]  @relation("ConfirmedOrders")
 }
 
 //////////////////////////////////////////////////////
-// CATEGORIES
+// CATEGORIES (Thu / Chi)
 //////////////////////////////////////////////////////
 
 model Category {
@@ -91,7 +161,7 @@ model Category {
 }
 
 //////////////////////////////////////////////////////
-// TRANSACTIONS (THU / CHI)
+// TRANSACTIONS (Thu / Chi — dành cho ACCOUNTANT/ADMIN)
 //////////////////////////////////////////////////////
 
 model Transaction {
@@ -101,6 +171,7 @@ model Transaction {
   note            String?
   isArchived      Boolean         @default(false)
   transactionDate DateTime
+
   logs TransactionLog[]
 
   categoryId String
@@ -118,6 +189,9 @@ model Transaction {
   deletedById String?
   deletedBy   User?   @relation("DeletedTransactions", fields: [deletedById], references: [id])
 
+  // Link tới SalesOrder nếu được tạo tự động từ confirm thanh toán
+  salesOrders SalesOrder[]
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
@@ -128,17 +202,15 @@ model Transaction {
   @@index([isArchived])
 }
 
-
 //////////////////////////////////////////////////////
-// TRANSACTIONLOG
+// TRANSACTION LOG
 //////////////////////////////////////////////////////
-
 
 model TransactionLog {
   id            String            @id @default(uuid())
   action        TransactionAction
-  changedFields Json?             // { amount: { from: 500000, to: 1000000 } }
-  note          String?           // ghi chú lý do update
+  changedFields Json?
+  note          String?
 
   transactionId String
   transaction   Transaction @relation(fields: [transactionId], references: [id])
@@ -153,6 +225,133 @@ model TransactionLog {
 }
 
 //////////////////////////////////////////////////////
+// CAKE PRODUCTS (Danh mục bánh)
+//////////////////////////////////////////////////////
+
+model CakeProduct {
+  id          String       @id @default(uuid())
+  category    CakeCategory
+  name        String       // Tên hiển thị VD: "Rau câu tim 20"
+
+  // Chỉ sinh nhật
+  shape       CakeShape?
+  size        CakeSize?
+  ageGroup    AgeGroup?
+
+  // Chỉ set (cúng ông táo, lễ, thôi nôi, tết, plan)
+  setNumber   Int?    // 1 hoặc 2
+  setQuantity Int?    // Số cái trong set (VD: thôi nôi = 12, plan = 10)
+
+  // Bánh bò / bánh ăn — giá nhập tay khi tạo đơn (basePrice = 0)
+  isPriceManual Boolean @default(false)
+
+  description String?
+  isActive    Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Bảng giá (Option A — linh hoạt)
+  prices      CakePrice[]
+  salesOrders SalesOrder[]
+}
+
+//////////////////////////////////////////////////////
+// CAKE PRICES (Bảng giá theo shape × size)
+// — Sinh nhật: shape + size → price
+// — Set / Bò / Ăn: 1 record duy nhất (shape=null, size=null)
+//////////////////////////////////////////////////////
+
+model CakePrice {
+  id    String @id @default(uuid())
+
+  cakeProductId String
+  cakeProduct   CakeProduct @relation(fields: [cakeProductId], references: [id])
+
+  // null nếu không phải sinh nhật
+  shape CakeShape?
+  size  CakeSize?
+
+  price Decimal @db.Decimal(15, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([cakeProductId, shape, size]) // mỗi tổ hợp chỉ 1 giá
+  @@index([cakeProductId])
+}
+
+//////////////////////////////////////////////////////
+// SALES ORDERS (Phiếu bán hàng — dành cho STAFF)
+//////////////////////////////////////////////////////
+
+model SalesOrder {
+  id        String @id @default(uuid())
+  orderCode String @unique // VD: DH001
+
+  // Khách hàng
+  customerId    String?
+  customer      Customer? @relation(fields: [customerId], references: [id])
+  customerName  String
+  customerPhone String
+
+  // Bánh
+  cakeProductId String?
+  cakeProduct   CakeProduct? @relation(fields: [cakeProductId], references: [id])
+  cakeName      String       // Mô tả VD: "Rau câu tim 20, màu xanh, hoa hồng"
+  quantity      Int          @default(1)
+
+  // Giá
+  basePrice  Decimal @db.Decimal(15, 2) // Giá cơ bản (từ CakePrice hoặc nhập tay)
+  surcharge  Decimal @db.Decimal(15, 2) @default(0) // Phụ thu NVL tăng giá
+  addonPrice Decimal @db.Decimal(15, 2) @default(0) // Phụ kiện (hộp, nến...)
+  addonNote  String? // Ghi chú phụ kiện VD: "Hộp 15k, nến 5k"
+  totalPrice Decimal @db.Decimal(15, 2) // = (basePrice + surcharge + addonPrice) × quantity
+
+  // Thời gian
+  orderTime    DateTime @default(now())   // Giờ đặt
+  deliveryTime DateTime                   // Giờ giao (mặc định orderTime + 2h)
+  deliveryDate DateTime                   // Ngày giao (tách riêng để dễ filter theo ngày)
+
+  // Trạng thái
+  orderStatus   OrderStatus   @default(PENDING)
+  paymentStatus PaymentStatus @default(UNPAID)
+  paymentMethod PaymentMethod? // Tiền mặt hoặc chuyển khoản (set khi STAFF báo đã nhận)
+
+  // Thông tin thêm
+  note         String? // Yêu cầu đặc biệt
+  imageUrl     String? // Hình mẫu KH chọn
+  cancelReason String? // Lý do hủy
+
+  // Người tạo (STAFF)
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id])
+
+  // ACCOUNTANT confirm nhận tiền → tạo Transaction THU
+  confirmedById   String?
+  confirmedBy     User?     @relation("ConfirmedOrders", fields: [confirmedById], references: [id])
+  confirmedAt     DateTime? // Thời điểm ACCOUNTANT confirm
+  transactionId   String?   // Link tới Transaction THU được tạo tự động
+  transaction     Transaction? @relation(fields: [transactionId], references: [id])
+
+  // Công nợ (nếu KH chưa trả)
+  debtId String?
+  debt   Debt?   @relation(fields: [debtId], references: [id])
+
+  // Notifications liên quan đến đơn này
+  notifications Notification[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([orderStatus])
+  @@index([paymentStatus])
+  @@index([createdById])
+  @@index([customerId])
+  @@index([deliveryDate])
+}
+
+//////////////////////////////////////////////////////
 // CUSTOMERS
 //////////////////////////////////////////////////////
 
@@ -162,29 +361,30 @@ model Customer {
   phone   String  @unique
   address String?
 
-  debts Debt[]
+  debts        Debt[]
   transactions Transaction[]
-  
+  salesOrders  SalesOrder[]
+
   createdAt DateTime @default(now())
 }
 
 //////////////////////////////////////////////////////
-// DEBTS (CÔNG NỢ)
+// DEBTS (Công nợ)
 //////////////////////////////////////////////////////
 
 model Debt {
-  id              String  @id @default(uuid())
-  totalAmount     Decimal @db.Decimal(15, 2)
-  remainingAmount Decimal @db.Decimal(15, 2)
-
-  status DebtStatus @default(UNPAID)
-
-  dueDate DateTime?
+  id              String     @id @default(uuid())
+  totalAmount     Decimal    @db.Decimal(15, 2)
+  remainingAmount Decimal    @db.Decimal(15, 2)
+  status          DebtStatus @default(UNPAID)
+  dueDate         DateTime?
+  note            String?    // Ghi chú lý do tạo nợ
 
   customerId String
   customer   Customer @relation(fields: [customerId], references: [id])
 
-  payments DebtPayment[]
+  payments    DebtPayment[]
+  salesOrders SalesOrder[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -215,8 +415,34 @@ model DebtPayment {
 }
 
 //////////////////////////////////////////////////////
-// Tax
+// NOTIFICATIONS (Thông báo)
 //////////////////////////////////////////////////////
+
+model Notification {
+  id      String           @id @default(uuid())
+  message String
+  type    NotificationType
+  isRead  Boolean          @default(false)
+
+  // Người nhận (ADMIN hoặc ACCOUNTANT)
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  // Link tới đơn hàng
+  orderId String?
+  order   SalesOrder? @relation(fields: [orderId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([orderId])
+}
+
+//////////////////////////////////////////////////////
+// TAX
+//////////////////////////////////////////////////////
+
 model Tax {
   id          String  @id @default(uuid())
   name        String

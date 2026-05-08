@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from "react";
 import {
   Table,
   Button,
@@ -16,25 +16,25 @@ import {
   InputNumber,
   Progress,
   Tabs,
-} from 'antd';
+} from "antd";
 import {
   PlusOutlined,
   EyeOutlined,
   SearchOutlined,
   ExclamationCircleOutlined,
   DollarOutlined,
-} from '@ant-design/icons';
-import type { ColumnsType } from 'antd/es/table';
-import dayjs from 'dayjs';
-import api from '@/lib/axios';
-import type { Customer, Role } from '@/types';
+} from "@ant-design/icons";
+import type { ColumnsType } from "antd/es/table";
+import dayjs from "dayjs";
+import api from "@/lib/axios";
+import type { Customer, Role } from "@/types";
 
 const { Title, Text } = Typography;
 
 const formatCurrency = (amount: number) =>
-  new Intl.NumberFormat('vi-VN').format(amount) + 'đ';
+  new Intl.NumberFormat("vi-VN").format(amount) + "đ";
 
-type DebtStatus = 'UNPAID' | 'PARTIAL' | 'PAID';
+type DebtStatus = "UNPAID" | "PARTIAL" | "PAID";
 
 interface Payment {
   id: string;
@@ -58,9 +58,9 @@ interface Debt {
 }
 
 const statusConfig: Record<DebtStatus, { color: string; label: string }> = {
-  UNPAID: { color: 'red', label: 'Chưa thanh toán' },
-  PARTIAL: { color: 'orange', label: 'Thanh toán 1 phần' },
-  PAID: { color: 'green', label: 'Đã tất toán' },
+  UNPAID: { color: "red", label: "Chưa thanh toán" },
+  PARTIAL: { color: "orange", label: "Thanh toán 1 phần" },
+  PAID: { color: "green", label: "Đã tất toán" },
 };
 
 const sortDebts = (list: Debt[]) => {
@@ -72,7 +72,7 @@ const sortDebts = (list: Debt[]) => {
   });
 };
 
-const isReadOnly = (role: Role) => role === 'OWNER';
+const isReadOnly = (role: Role) => role === "OWNER";
 
 export default function DebtsPage() {
   const [debts, setDebts] = useState<Debt[]>([]);
@@ -82,7 +82,7 @@ export default function DebtsPage() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [selectedDebt, setSelectedDebt] = useState<Debt | null>(null);
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState("");
   const [currentUser, setCurrentUser] = useState<{
     id: string;
     role: Role;
@@ -91,7 +91,7 @@ export default function DebtsPage() {
   const [paymentForm] = Form.useForm();
 
   useEffect(() => {
-    const stored = localStorage.getItem('user');
+    const stored = localStorage.getItem("user");
     if (stored)
       setCurrentUser(JSON.parse(stored) as { id: string; role: Role });
     void fetchAll();
@@ -101,13 +101,13 @@ export default function DebtsPage() {
     setLoading(true);
     try {
       const [debtRes, cusRes] = await Promise.all([
-        api.get<Debt[]>('/debts'),
-        api.get<Customer[]>('/customers'),
+        api.get<Debt[]>("/debts"),
+        api.get<Customer[]>("/customers"),
       ]);
       setDebts(sortDebts(debtRes.data));
       setCustomers(cusRes.data);
     } catch {
-      message.error('Không thể tải dữ liệu!');
+      message.error("Không thể tải dữ liệu!");
     } finally {
       setLoading(false);
     }
@@ -119,26 +119,26 @@ export default function DebtsPage() {
       setSelectedDebt(res.data);
       setDetailOpen(true);
     } catch {
-      message.error('Không thể tải chi tiết!');
+      message.error("Không thể tải chi tiết!");
     }
   };
 
   const handleCreate = async () => {
     try {
       const values = await createForm.validateFields();
-      await api.post('/debts', {
+      await api.post("/debts", {
         ...values,
         totalAmount: Number(values.totalAmount as number),
         dueDate: values.dueDate
           ? (values.dueDate as dayjs.Dayjs).toISOString()
           : undefined,
       });
-      message.success('Thêm công nợ thành công!');
+      message.success("Thêm công nợ thành công!");
       setCreateOpen(false);
       createForm.resetFields();
       void fetchAll();
     } catch {
-      message.error('Có lỗi xảy ra!');
+      message.error("Có lỗi xảy ra!");
     }
   };
 
@@ -146,14 +146,14 @@ export default function DebtsPage() {
     if (!selectedDebt) return;
     try {
       const values = await paymentForm.validateFields();
-      await api.post('/payments', {
+      await api.post("/payments", {
         debtId: selectedDebt.id,
         amount: Number(values.amount as number),
         note: values.note as string,
         paymentDate: new Date().toISOString(),
         receivedById: currentUser?.id,
       });
-      message.success('Thanh toán thành công!');
+      message.success("Thanh toán thành công!");
       setPaymentOpen(false);
       paymentForm.resetFields();
       void fetchAll();
@@ -161,20 +161,20 @@ export default function DebtsPage() {
       setSelectedDebt(res.data);
     } catch (err: unknown) {
       const error = err as { response?: { data?: { message?: string } } };
-      message.error(error.response?.data?.message ?? 'Có lỗi xảy ra!');
+      message.error(error.response?.data?.message ?? "Có lỗi xảy ra!");
     }
   };
 
   const activeDebts = debts.filter(
     (d) =>
-      d.status !== 'PAID' &&
+      d.status !== "PAID" &&
       (!search ||
         d.customer?.name?.toLowerCase().includes(search.toLowerCase())),
   );
 
   const paidDebts = debts.filter(
     (d) =>
-      d.status === 'PAID' &&
+      d.status === "PAID" &&
       (!search ||
         d.customer?.name?.toLowerCase().includes(search.toLowerCase())),
   );
@@ -183,36 +183,36 @@ export default function DebtsPage() {
     (d) =>
       d.dueDate &&
       dayjs(d.dueDate).isBefore(dayjs()) &&
-      d.status !== 'PAID' &&
+      d.status !== "PAID" &&
       (!search ||
         d.customer?.name?.toLowerCase().includes(search.toLowerCase())),
   );
 
   const columns: ColumnsType<Debt> = [
     {
-      title: 'Khách hàng',
-      dataIndex: ['customer', 'name'],
-      key: 'customer',
+      title: "Khách hàng",
+      dataIndex: ["customer", "name"],
+      key: "customer",
       render: (name: string, record) => (
         <div>
           <Text strong>{name}</Text>
-          <div style={{ fontSize: 12, color: '#94a3b8' }}>
+          <div style={{ fontSize: 12, color: "#94a3b8" }}>
             {record.customer?.phone}
           </div>
         </div>
       ),
     },
     {
-      title: 'Tổng nợ',
-      dataIndex: 'totalAmount',
-      key: 'totalAmount',
+      title: "Tổng nợ",
+      dataIndex: "totalAmount",
+      key: "totalAmount",
       render: (amount: number) => (
         <Text strong>{formatCurrency(Number(amount))}</Text>
       ),
     },
     {
-      title: 'Còn lại',
-      key: 'remaining',
+      title: "Còn lại",
+      key: "remaining",
       render: (_, record) => {
         const total = Number(record.totalAmount);
         const remaining = Number(record.remainingAmount);
@@ -222,7 +222,7 @@ export default function DebtsPage() {
           <div style={{ minWidth: 130 }}>
             <Text
               style={{
-                color: remaining > 0 ? '#ef4444' : '#10b981',
+                color: remaining > 0 ? "#ef4444" : "#10b981",
                 fontWeight: 700,
               }}
             >
@@ -239,37 +239,37 @@ export default function DebtsPage() {
         );
       },
     },
+    // {
+    //   title: 'Trạng thái',
+    //   dataIndex: 'status',
+    //   key: 'status',
+    //   render: (status: DebtStatus) => (
+    //     <Tag color={statusConfig[status].color}>
+    //       {statusConfig[status].label}
+    //     </Tag>
+    //   ),
+    // },
     {
-      title: 'Trạng thái',
-      dataIndex: 'status',
-      key: 'status',
-      render: (status: DebtStatus) => (
-        <Tag color={statusConfig[status].color}>
-          {statusConfig[status].label}
-        </Tag>
-      ),
-    },
-    {
-      title: 'Hạn trả',
-      dataIndex: 'dueDate',
-      key: 'dueDate',
+      title: "Hạn trả",
+      dataIndex: "dueDate",
+      key: "dueDate",
       render: (date: string, record) => {
         if (!date) return <Text type="secondary">—</Text>;
         const isOverdue =
-          dayjs(date).isBefore(dayjs()) && record.status !== 'PAID';
+          dayjs(date).isBefore(dayjs()) && record.status !== "PAID";
         return (
-          <span style={{ color: isOverdue ? '#ef4444' : '#0f172a' }}>
+          <span style={{ color: isOverdue ? "#ef4444" : "#0f172a" }}>
             {isOverdue && (
               <ExclamationCircleOutlined style={{ marginRight: 4 }} />
             )}
-            {dayjs(date).format('DD/MM/YYYY')}
+            {dayjs(date).format("DD/MM/YYYY")}
           </span>
         );
       },
     },
     {
-      title: 'Thao tác',
-      key: 'actions',
+      title: "Thao tác",
+      key: "actions",
       width: 130,
       render: (_, record) => (
         <Space>
@@ -278,12 +278,12 @@ export default function DebtsPage() {
             icon={<EyeOutlined />}
             onClick={() => void openDetail(record)}
           />
-          {record.status !== 'PAID' &&
-            !isReadOnly(currentUser?.role ?? 'OWNER') && (
+          {record.status !== "PAID" &&
+            !isReadOnly(currentUser?.role ?? "OWNER") && (
               <Button
                 size="small"
                 icon={<DollarOutlined />}
-                style={{ color: '#10b981', borderColor: '#10b981' }}
+                style={{ color: "#10b981", borderColor: "#10b981" }}
                 onClick={() => {
                   setSelectedDebt(record);
                   paymentForm.resetFields();
@@ -303,32 +303,32 @@ export default function DebtsPage() {
       {/* Header */}
       <div
         style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
           marginBottom: 20,
         }}
       >
         <div>
-          <Title level={4} style={{ margin: 0, color: '#0f172a' }}>
+          <Title level={4} style={{ margin: 0, color: "#0f172a" }}>
             Quản lý Công nợ
           </Title>
-          <Text style={{ color: '#94a3b8', fontSize: 13 }}>
+          <Text style={{ color: "#94a3b8", fontSize: 13 }}>
             {overdueDebts.length > 0 && (
-              <span style={{ color: '#ef4444', fontWeight: 600 }}>
-                ⚠ {overdueDebts.length} công nợ quá hạn •{' '}
+              <span style={{ color: "#ef4444", fontWeight: 600 }}>
+                ⚠ {overdueDebts.length} công nợ quá hạn •{" "}
               </span>
             )}
-            Tổng {debts.length} công nợ
+            Tổng {activeDebts.length} công nợ
           </Text>
         </div>
-        {!isReadOnly(currentUser?.role ?? 'OWNER') && (
+        {!isReadOnly(currentUser?.role ?? "OWNER") && (
           <Button
             type="primary"
             icon={<PlusOutlined />}
             style={{
-              background: '#6366f1',
-              borderColor: '#6366f1',
+              background: "#6366f1",
+              borderColor: "#6366f1",
               borderRadius: 8,
             }}
             onClick={() => {
@@ -357,7 +357,7 @@ export default function DebtsPage() {
         defaultActiveKey="active"
         items={[
           {
-            key: 'active',
+            key: "active",
             label: `Đang nợ (${activeDebts.length})`,
             children: (
               <Table
@@ -370,10 +370,10 @@ export default function DebtsPage() {
             ),
           },
           {
-            key: 'overdue',
+            key: "overdue",
             label: (
               <span>
-                Quá hạn{' '}
+                Quá hạn{" "}
                 {overdueDebts.length > 0 && (
                   <Tag color="red">{overdueDebts.length}</Tag>
                 )}
@@ -390,7 +390,7 @@ export default function DebtsPage() {
             ),
           },
           {
-            key: 'paid',
+            key: "paid",
             label: `Đã tất toán (${paidDebts.length})`,
             children: (
               <Table
@@ -414,14 +414,14 @@ export default function DebtsPage() {
         okText="Thêm mới"
         cancelText="Huỷ"
         okButtonProps={{
-          style: { background: '#6366f1', borderColor: '#6366f1' },
+          style: { background: "#6366f1", borderColor: "#6366f1" },
         }}
       >
         <Form form={createForm} layout="vertical" style={{ marginTop: 16 }}>
           <Form.Item
             name="customerId"
             label="Khách hàng"
-            rules={[{ required: true, message: 'Chọn khách hàng!' }]}
+            rules={[{ required: true, message: "Chọn khách hàng!" }]}
           >
             <Select
               showSearch
@@ -431,7 +431,7 @@ export default function DebtsPage() {
                 label: `${c.name} - ${c.phone}`,
               }))}
               filterOption={(input, option) =>
-                (option?.label ?? '')
+                (option?.label ?? "")
                   .toLowerCase()
                   .includes(input.toLowerCase())
               }
@@ -440,12 +440,12 @@ export default function DebtsPage() {
           <Form.Item
             name="totalAmount"
             label="Số tiền nợ (VNĐ)"
-            rules={[{ required: true, message: 'Nhập số tiền!' }]}
+            rules={[{ required: true, message: "Nhập số tiền!" }]}
           >
             <InputNumber
-              style={{ width: '100%' }}
+              style={{ width: "100%" }}
               formatter={(value) =>
-                `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+                `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
               }
               min={1}
               placeholder="VD: 5000000"
@@ -453,7 +453,7 @@ export default function DebtsPage() {
           </Form.Item>
           <Form.Item name="dueDate" label="Hạn trả">
             <DatePicker
-              style={{ width: '100%' }}
+              style={{ width: "100%" }}
               format="DD/MM/YYYY"
               placeholder="Chọn ngày hạn trả (tuỳ chọn)"
             />
@@ -467,12 +467,12 @@ export default function DebtsPage() {
         open={detailOpen}
         onCancel={() => setDetailOpen(false)}
         footer={
-          selectedDebt?.status !== 'PAID' &&
-          !isReadOnly(currentUser?.role ?? 'OWNER') ? (
+          selectedDebt?.status !== "PAID" &&
+          !isReadOnly(currentUser?.role ?? "OWNER") ? (
             <Button
               type="primary"
               icon={<DollarOutlined />}
-              style={{ background: '#10b981', borderColor: '#10b981' }}
+              style={{ background: "#10b981", borderColor: "#10b981" }}
               onClick={() => {
                 paymentForm.resetFields();
                 setPaymentOpen(true);
@@ -489,7 +489,7 @@ export default function DebtsPage() {
           <div>
             <div
               style={{
-                background: '#f8fafc',
+                background: "#f8fafc",
                 borderRadius: 10,
                 padding: 16,
                 marginBottom: 16,
@@ -497,18 +497,19 @@ export default function DebtsPage() {
             >
               <div
                 style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
+                  display: "flex",
+                  justifyContent: "space-between",
                   marginBottom: 8,
                 }}
               >
-                <Text type="secondary">Khách hàng</Text>
-                <Text strong>{selectedDebt.customer?.name}</Text>
+                <Text strong>
+                  {`${selectedDebt.customer?.name} - ${selectedDebt.customer?.address} - ${selectedDebt.customer?.phone}`}
+                </Text>
               </div>
               <div
                 style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
+                  display: "flex",
+                  justifyContent: "space-between",
                   marginBottom: 8,
                 }}
               >
@@ -519,20 +520,20 @@ export default function DebtsPage() {
               </div>
               <div
                 style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
+                  display: "flex",
+                  justifyContent: "space-between",
                   marginBottom: 8,
                 }}
               >
                 <Text type="secondary">Còn lại</Text>
-                <Text strong style={{ color: '#ef4444' }}>
+                <Text strong style={{ color: "#ef4444" }}>
                   {formatCurrency(Number(selectedDebt.remainingAmount))}
                 </Text>
               </div>
               <div
                 style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
+                  display: "flex",
+                  justifyContent: "space-between",
                   marginBottom: 8,
                 }}
               >
@@ -543,17 +544,17 @@ export default function DebtsPage() {
               </div>
               {selectedDebt.dueDate && (
                 <div
-                  style={{ display: 'flex', justifyContent: 'space-between' }}
+                  style={{ display: "flex", justifyContent: "space-between" }}
                 >
                   <Text type="secondary">Hạn trả</Text>
                   <Text
                     style={{
                       color: dayjs(selectedDebt.dueDate).isBefore(dayjs())
-                        ? '#ef4444'
-                        : '#0f172a',
+                        ? "#ef4444"
+                        : "#0f172a",
                     }}
                   >
-                    {dayjs(selectedDebt.dueDate).format('DD/MM/YYYY')}
+                    {dayjs(selectedDebt.dueDate).format("DD/MM/YYYY")}
                   </Text>
                 </div>
               )}
@@ -567,25 +568,25 @@ export default function DebtsPage() {
                 <div
                   key={p.id}
                   style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    padding: '10px 12px',
-                    background: '#f0fdf4',
+                    display: "flex",
+                    justifyContent: "space-between",
+                    padding: "10px 12px",
+                    background: "#f0fdf4",
                     borderRadius: 8,
                     marginBottom: 8,
-                    borderLeft: '3px solid #10b981',
+                    borderLeft: "3px solid #10b981",
                   }}
                 >
                   <div>
-                    <Text strong style={{ color: '#10b981' }}>
+                    <Text strong style={{ color: "#10b981" }}>
                       +{formatCurrency(Number(p.amount))}
                     </Text>
-                    <div style={{ fontSize: 12, color: '#94a3b8' }}>
-                      {dayjs(p.paymentDate).format('DD/MM/YYYY')} •{' '}
+                    <div style={{ fontSize: 12, color: "#94a3b8" }}>
+                      {dayjs(p.paymentDate).format("DD/MM/YYYY")} •{" "}
                       {p.receivedBy?.fullName}
                     </div>
                     {p.note && (
-                      <div style={{ fontSize: 12, color: '#64748b' }}>
+                      <div style={{ fontSize: 12, color: "#64748b" }}>
                         {p.note}
                       </div>
                     )}
@@ -606,20 +607,20 @@ export default function DebtsPage() {
         okText="Xác nhận thanh toán"
         cancelText="Huỷ"
         okButtonProps={{
-          style: { background: '#10b981', borderColor: '#10b981' },
+          style: { background: "#10b981", borderColor: "#10b981" },
         }}
       >
         {selectedDebt && (
           <div
             style={{
-              background: '#f0fdf4',
+              background: "#f0fdf4",
               borderRadius: 8,
               padding: 12,
               marginBottom: 16,
             }}
           >
             <Text type="secondary">Còn lại cần thanh toán: </Text>
-            <Text strong style={{ color: '#ef4444' }}>
+            <Text strong style={{ color: "#ef4444" }}>
               {formatCurrency(Number(selectedDebt.remainingAmount))}
             </Text>
           </div>
@@ -629,12 +630,12 @@ export default function DebtsPage() {
             name="amount"
             label="Số tiền thanh toán (VNĐ)"
             rules={[
-              { required: true, message: 'Nhập số tiền!' },
+              { required: true, message: "Nhập số tiền!" },
               {
                 validator: (_, value: number) => {
                   if (value > Number(selectedDebt?.remainingAmount ?? 0)) {
                     return Promise.reject(
-                      'Số tiền không được vượt quá số nợ còn lại!',
+                      "Số tiền không được vượt quá số nợ còn lại!",
                     );
                   }
                   return Promise.resolve();
@@ -643,9 +644,9 @@ export default function DebtsPage() {
             ]}
           >
             <InputNumber
-              style={{ width: '100%' }}
+              style={{ width: "100%" }}
               formatter={(value) =>
-                `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+                `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
               }
               min={1}
               max={Number(selectedDebt?.remainingAmount ?? 0)}

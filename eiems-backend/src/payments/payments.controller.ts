@@ -12,7 +12,7 @@ export class PaymentsController {
       body.amount,
       body.receivedById,
       body.note,
-      body.paymentDate? new Date(body.paymentDate) : undefined
+      body.paymentDate ? new Date(body.paymentDate) : undefined,
     );
   }
   @Get('/debt/:id')

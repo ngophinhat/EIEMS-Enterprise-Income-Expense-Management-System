@@ -41,7 +41,7 @@ export class TaxService {
       vatAmount: vat,
       tndnAmount: tndn,
       totalTax,
-      incomeAfterTax: parseFloat((income - totalTax).toFixed(2)),
+      incomeAfterTax: profit - tndn,
     };
   }
 }

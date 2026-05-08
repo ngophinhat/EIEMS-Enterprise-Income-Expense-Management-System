@@ -1,6 +1,7 @@
-'use client';
+/* eslint-disable @typescript-eslint/no-unused-vars */
+"use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from "react";
 import {
   Table,
   Button,
@@ -12,16 +13,13 @@ import {
   Typography,
   message,
   Switch,
-} from 'antd';
-import {
-  PlusOutlined,
-  EditOutlined,
-  SearchOutlined,
-} from '@ant-design/icons';
-import type { ColumnsType } from 'antd/es/table';
-import api from '@/lib/axios';
-import type { Category, Role } from '@/types';
+} from "antd";
+import { PlusOutlined, EditOutlined, SearchOutlined } from "@ant-design/icons";
+import type { ColumnsType } from "antd/es/table";
+import api from "@/lib/axios";
+import type { Category, Role } from "@/types";
 
+ 
 const { Title, Text } = Typography;
 
 export default function CategoriesPage() {
@@ -29,8 +27,8 @@ export default function CategoriesPage() {
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Category | null>(null);
-  const [search, setSearch] = useState('');
-  const [typeFilter, setTypeFilter] = useState<string>('');
+  const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState<string>("");
   const [currentUser, setCurrentUser] = useState<{
     id: string;
     role: Role;
@@ -38,7 +36,7 @@ export default function CategoriesPage() {
   const [form] = Form.useForm();
 
   useEffect(() => {
-    const stored = localStorage.getItem('user');
+    const stored = localStorage.getItem("user");
     if (stored)
       setCurrentUser(JSON.parse(stored) as { id: string; role: Role });
     void fetchAll();
@@ -47,10 +45,10 @@ export default function CategoriesPage() {
   const fetchAll = async () => {
     setLoading(true);
     try {
-      const res = await api.get<Category[]>('/categories');
+      const res = await api.get<Category[]>("/categories");
       setCategories(res.data);
     } catch {
-      message.error('Không thể tải dữ liệu!');
+      message.error("Không thể tải dữ liệu!");
     } finally {
       setLoading(false);
     }
@@ -73,27 +71,25 @@ export default function CategoriesPage() {
       const values = await form.validateFields();
       if (editing) {
         await api.patch(`/categories/${editing.id}`, values);
-        message.success('Cập nhật danh mục thành công!');
+        message.success("Cập nhật danh mục thành công!");
       } else {
-        await api.post('/categories', values);
-        message.success('Thêm danh mục thành công!');
+        await api.post("/categories", values);
+        message.success("Thêm danh mục thành công!");
       }
       setModalOpen(false);
       void fetchAll();
     } catch {
-      message.error('Có lỗi xảy ra!');
+      message.error("Có lỗi xảy ra!");
     }
   };
 
   const handleToggle = async (cat: Category) => {
     try {
       await api.patch(`/categories/${cat.id}`, { isActive: !cat.isActive });
-      message.success(
-        !cat.isActive ? 'Đã bật danh mục!' : 'Đã tắt danh mục!',
-      );
+      message.success(!cat.isActive ? "Đã bật danh mục!" : "Đã tắt danh mục!");
       void fetchAll();
     } catch {
-      message.error('Có lỗi xảy ra!');
+      message.error("Có lỗi xảy ra!");
     }
   };
 
@@ -106,34 +102,31 @@ export default function CategoriesPage() {
 
   const columns: ColumnsType<Category> = [
     {
-      title: 'Tên danh mục',
-      dataIndex: 'name',
-      key: 'name',
+      title: "Tên danh mục",
+      dataIndex: "name",
+      key: "name",
       render: (name: string, record) => (
-        <Text
-          strong
-          style={{ color: record.isActive ? '#0f172a' : '#94a3b8' }}
-        >
+        <Text strong style={{ color: record.isActive ? "#0f172a" : "#94a3b8" }}>
           {name}
         </Text>
       ),
     },
     {
-      title: 'Loại',
-      dataIndex: 'type',
-      key: 'type',
+      title: "Loại",
+      dataIndex: "type",
+      key: "type",
       width: 120,
       render: (type: string) =>
-        type === 'INCOME' ? (
+        type === "INCOME" ? (
           <Tag color="green">Thu nhập</Tag>
         ) : (
           <Tag color="red">Chi tiêu</Tag>
         ),
     },
     {
-      title: 'Trạng thái',
-      dataIndex: 'isActive',
-      key: 'isActive',
+      title: "Trạng thái",
+      dataIndex: "isActive",
+      key: "isActive",
       width: 110,
       render: (isActive: boolean, record) => (
         <Switch
@@ -146,8 +139,8 @@ export default function CategoriesPage() {
       ),
     },
     {
-      title: 'Thao tác',
-      key: 'actions',
+      title: "Thao tác",
+      key: "actions",
       width: 80,
       render: (_, record) =>
         !record.isSystem ? (
@@ -169,16 +162,15 @@ export default function CategoriesPage() {
       {/* Header */}
       <div
         style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
           marginBottom: 20,
         }}
-      >
-      </div>
+      ></div>
 
       {/* Filters */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
+      <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
         <Input
           placeholder="Tìm kiếm danh mục..."
           prefix={<SearchOutlined />}
@@ -191,18 +183,18 @@ export default function CategoriesPage() {
           style={{ width: 160 }}
           allowClear
           value={typeFilter || undefined}
-          onChange={(val) => setTypeFilter(val ?? '')}
+          onChange={(val) => setTypeFilter(val ?? "")}
           options={[
-            { value: 'INCOME', label: 'Thu nhập' },
-            { value: 'EXPENSE', label: 'Chi tiêu' },
+            { value: "INCOME", label: "Thu nhập" },
+            { value: "EXPENSE", label: "Chi tiêu" },
           ]}
         />
         <Button
           type="primary"
           icon={<PlusOutlined />}
           style={{
-            background: '#6366f1',
-            borderColor: '#6366f1',
+            background: "#6366f1",
+            borderColor: "#6366f1",
             borderRadius: 8,
           }}
           onClick={openCreate}
@@ -218,39 +210,39 @@ export default function CategoriesPage() {
         rowKey="id"
         loading={loading}
         pagination={{ pageSize: 10, showSizeChanger: true }}
-        style={{ borderRadius: 12, background: 'white' }}
-        rowClassName={(record) => (!record.isActive ? 'opacity-50' : '')}
+        style={{ borderRadius: 12, background: "white" }}
+        rowClassName={(record) => (!record.isActive ? "opacity-50" : "")}
       />
 
       {/* Create/Edit Modal */}
       <Modal
-        title={editing ? 'Cập nhật danh mục' : 'Thêm danh mục mới'}
+        title={editing ? "Cập nhật danh mục" : "Thêm danh mục mới"}
         open={modalOpen}
         onOk={() => void handleSubmit()}
         onCancel={() => setModalOpen(false)}
-        okText={editing ? 'Cập nhật' : 'Thêm mới'}
+        okText={editing ? "Cập nhật" : "Thêm mới"}
         cancelText="Huỷ"
         okButtonProps={{
-          style: { background: '#6366f1', borderColor: '#6366f1' },
+          style: { background: "#6366f1", borderColor: "#6366f1" },
         }}
       >
         <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
           <Form.Item
             name="name"
             label="Tên danh mục"
-            rules={[{ required: true, message: 'Nhập tên danh mục!' }]}
+            rules={[{ required: true, message: "Nhập tên danh mục!" }]}
           >
             <Input placeholder="VD: Ăn uống, Lương, Điện nước..." />
           </Form.Item>
           <Form.Item
             name="type"
             label="Loại"
-            rules={[{ required: true, message: 'Chọn loại!' }]}
+            rules={[{ required: true, message: "Chọn loại!" }]}
           >
             <Select
               options={[
-                { value: 'INCOME', label: '📈 Thu nhập' },
-                { value: 'EXPENSE', label: '📉 Chi tiêu' },
+                { value: "INCOME", label: "📈 Thu nhập" },
+                { value: "EXPENSE", label: "📉 Chi tiêu" },
               ]}
               placeholder="Chọn loại danh mục"
               disabled={!!editing}

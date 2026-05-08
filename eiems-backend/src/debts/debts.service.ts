@@ -34,10 +34,7 @@ export class DebtsService {
         },
       },
       // Sort: UNPAID → PARTIAL lên đầu, trong mỗi nhóm sort theo updatedAt mới nhất
-      orderBy: [
-        { status: 'asc' },
-        { updatedAt: 'desc' },
-      ],
+      orderBy: [{ status: 'asc' }, { updatedAt: 'desc' }],
     });
   }
 
@@ -51,7 +48,7 @@ export class DebtsService {
             id: true,
             amount: true,
             paymentDate: true,
-            note: true,       // ← thêm note
+            note: true, // ← thêm note
             createdAt: true,
             receivedBy: {
               select: { id: true, fullName: true },

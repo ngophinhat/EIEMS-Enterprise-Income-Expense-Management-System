@@ -1,14 +1,14 @@
-'use client';
+"use client";
 
-import { useEffect, useState, useCallback } from 'react';
-import { Row, Col, Spin, Typography, Button, Dropdown } from 'antd';
+import { useEffect, useState, useCallback } from "react";
+import { Row, Col, Spin, Typography, Button, Dropdown } from "antd";
 import {
   PlusOutlined,
   CalendarOutlined,
   ArrowUpOutlined,
   ArrowDownOutlined,
   DownOutlined,
-} from '@ant-design/icons';
+} from "@ant-design/icons";
 import {
   AreaChart,
   Area,
@@ -19,31 +19,29 @@ import {
   PieChart,
   Pie,
   Cell,
-} from 'recharts';
-import api from '@/lib/axios';
-import type { Dashboard, Transaction, Role } from '@/types';
-import { useRouter } from 'next/navigation';
-import dayjs from 'dayjs';
+} from "recharts";
+import api from "@/lib/axios";
+import type { Dashboard, Transaction, Role } from "@/types";
+import { useRouter } from "next/navigation";
+import dayjs from "dayjs";
 
 const { Title, Text } = Typography;
 
 const formatCurrency = (amount: number) =>
-  new Intl.NumberFormat('vi-VN').format(amount) + 'đ';
+  new Intl.NumberFormat("vi-VN").format(amount) + "đ";
 
-const MONTHS = [
-  'THÁNG 10',
-  'THÁNG 11',
-  'THÁNG 12',
-  'THÁNG 01',
-  'THÁNG 02',
-  'THÁNG 03',
-];
-const PIE_COLORS = ['#6366f1', '#f59e0b', '#10b981', '#94a3b8'];
+const PIE_COLORS = ["#6366f1", "#f59e0b", "#10b981", "#94a3b8"];
 
 interface PeriodReport {
   totalIncome: number;
   totalExpense: number;
   profit: number;
+}
+
+interface ChartPoint {
+  month: string;
+  income: number;
+  expense: number;
 }
 
 export default function DashboardPage() {
@@ -53,21 +51,25 @@ export default function DashboardPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [periodLoading, setPeriodLoading] = useState(false);
-  const [period, setPeriod] = useState<'month' | 'quarter' | 'year'>('month');
+  const [period, setPeriod] = useState<"quarter" | "year">("year");
+  const [chartData, setChartData] = useState<ChartPoint[]>([]);
   const [currentUser, setCurrentUser] = useState<{
     id: string;
     role: Role;
   } | null>(null);
 
-  // Fetch dashboard tổng quan (1 lần)
+    // Fetch dashboard tổng quan (1 lần)
   useEffect(() => {
-    const stored = localStorage.getItem('user');
-    if (stored)
-      setCurrentUser(JSON.parse(stored) as { id: string; role: Role });
+    const stored = localStorage.getItem("user");
+    if (!stored) return;
+    setCurrentUser(JSON.parse(stored) as { id: string; role: Role });
+
+    const token = localStorage.getItem("token");
+    if (!token) return;
 
     Promise.all([
-      api.get<Dashboard>('/reports/dashboard'),
-      api.get<Transaction[]>('/transactions'),
+      api.get<Dashboard>("/reports/dashboard"),
+      api.get<Transaction[]>("/transactions"),
     ])
       .then(([dashRes, txRes]) => {
         setDashData(dashRes.data);
@@ -78,32 +80,79 @@ export default function DashboardPage() {
   }, []);
 
   // Fetch data theo period
-  const fetchPeriodData = useCallback(async (p: 'month' | 'quarter' | 'year') => {
+  const fetchPeriodData = useCallback(
+  async (p: "month" | "quarter" | "year") => {
     setPeriodLoading(true);
     try {
       const year = dayjs().year();
       const month = dayjs().month() + 1;
       const quarter = Math.ceil(month / 3);
-
+ 
       let res;
-      if (p === 'month') {
+      if (p === "month") {
         res = await api.get<PeriodReport>(
           `/reports/month?year=${year}&month=${month}`,
         );
-      } else if (p === 'quarter') {
+        // Tháng: hiện từng ngày trong tháng (gộp theo tuần cho gọn)
+        // Hoặc chỉ hiện 1 điểm = tháng hiện tại
+        setChartData([
+          {
+            month: `T${month}/${year}`,
+            income: res.data.totalIncome,
+            expense: res.data.totalExpense,
+          },
+        ]);
+      } else if (p === "quarter") {
+        // Quý: fetch 3 tháng trong quý
+        const startMonth = (quarter - 1) * 3 + 1;
+        const months = [startMonth, startMonth + 1, startMonth + 2];
+ 
+        const results = await Promise.all(
+          months.map((m) =>
+            api.get<PeriodReport>(`/reports/month?year=${year}&month=${m}`)
+          )
+        );
+ 
+        setChartData(
+          results.map((r, i) => ({
+            month: `THÁNG ${months[i]}`,
+            income: r.data.totalIncome,
+            expense: r.data.totalExpense,
+          }))
+        );
+ 
         res = await api.get<PeriodReport>(
           `/reports/quarter?year=${year}&quarter=${quarter}`,
         );
       } else {
+        // Năm: fetch 12 tháng
+        const results = await Promise.all(
+          Array.from({ length: 12 }, (_, i) =>
+            api.get<PeriodReport>(`/reports/month?year=${year}&month=${i + 1}`)
+          )
+        );
+ 
+        setChartData(
+          results.map((r, i) => ({
+            month: `T${i + 1}`,
+            income: r.data.totalIncome,
+            expense: r.data.totalExpense,
+          }))
+        );
+ 
         res = await api.get<PeriodReport>(`/reports/year?year=${year}`);
       }
-      setPeriodData(res.data);
+ 
+      if (res) setPeriodData(res.data);
     } catch {
       setPeriodData(null);
+      setChartData([]);
     } finally {
       setPeriodLoading(false);
     }
-  }, []);
+  },
+  [],
+);
 
   useEffect(() => {
     void fetchPeriodData(period);
@@ -113,10 +162,10 @@ export default function DashboardPage() {
     return (
       <div
         style={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          height: '60vh',
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          height: "60vh",
         }}
       >
         <Spin size="large" />
@@ -124,72 +173,65 @@ export default function DashboardPage() {
     );
   }
 
-  const isOwner = currentUser?.role === 'OWNER';
+  const isOwner = currentUser?.role === "OWNER";
 
   // Dùng periodData nếu có, fallback về dashData
   const income = periodData?.totalIncome ?? dashData?.totalIncome ?? 0;
   const expense = periodData?.totalExpense ?? dashData?.totalExpense ?? 0;
   const profit = periodData?.profit ?? dashData?.profit ?? 0;
 
-  const chartData = MONTHS.map((month, i) => ({
-    month,
-    income: Math.round(income * (0.5 + i * 0.1)),
-    expense: Math.round(expense * (0.4 + i * 0.08)),
-  }));
 
   const pieData = [
-    { name: 'Thu nhập', value: income },
-    { name: 'Chi tiêu', value: expense },
-    { name: 'Công nợ', value: dashData?.totalDebts ?? 0 },
-    { name: 'Khác', value: Math.abs(profit) * 0.1 },
+    { name: "Thu nhập", value: income },
+    { name: "Chi tiêu", value: expense },
+    { name: "Công nợ", value: dashData?.totalDebts ?? 0 },
+    { name: "Khác", value: Math.abs(profit) * 0.1 },
   ];
 
   const totalPie = pieData.reduce((a, b) => a + b.value, 0);
 
   const periodLabel = {
-    month: 'Tháng này',
-    quarter: 'Quý này',
-    year: 'Năm này',
+    quarter: "Quý này",
+    year: "Năm này",
   }[period];
 
   return (
-    <div style={{ padding: '4px 0' }}>
+    <div style={{ padding: "4px 0" }}>
       {/* Header */}
       <div
         style={{
-          display: 'flex',
-          alignItems: 'flex-start',
-          justifyContent: 'space-between',
+          display: "flex",
+          alignItems: "flex-start",
+          justifyContent: "space-between",
           marginBottom: 24,
-          flexWrap: 'wrap',
+          flexWrap: "wrap",
           gap: 12,
         }}
       >
         <div>
           <Title
             level={3}
-            style={{ margin: 0, color: '#0f172a', fontWeight: 700 }}
+            style={{ margin: 0, color: "#0f172a", fontWeight: 700 }}
           >
             Tổng quan thu chi
           </Title>
-          <Text style={{ color: '#94a3b8', fontSize: 13 }}>
-            Thống kê tài chính — {periodLabel} •{' '}
-            {new Date().toLocaleDateString('vi-VN')}
+          <Text style={{ color: "#94a3b8", fontSize: 13 }}>
+            Thống kê tài chính — {periodLabel} •{" "}
+            {new Date().toLocaleDateString("vi-VN")}
           </Text>
         </div>
-        <div style={{ display: 'flex', gap: 10 }}>
+        <div style={{ display: "flex", gap: 10 }}>
           <Dropdown
             menu={{
               items: [
-                { key: 'month', label: 'Tháng này' },
-                { key: 'quarter', label: 'Quý này' },
-                { key: 'year', label: 'Năm này' },
+                { key: "quarter", label: "Quý này" },
+                { key: "year", label: "Năm này" },
               ],
               onClick: ({ key }) =>
-                setPeriod(key as 'month' | 'quarter' | 'year'),
+                setPeriod(key as "quarter" | "year"),
               selectedKeys: [period],
             }}
-            trigger={['click']}
+            trigger={["click"]}
           >
             <Button
               icon={<CalendarOutlined />}
@@ -207,10 +249,10 @@ export default function DashboardPage() {
               icon={<PlusOutlined />}
               style={{
                 borderRadius: 8,
-                background: '#6366f1',
-                borderColor: '#6366f1',
+                background: "#6366f1",
+                borderColor: "#6366f1",
               }}
-              onClick={() => router.push('/transactions')}
+              onClick={() => router.push("/transactions")}
             >
               Thêm giao dịch
             </Button>
@@ -223,66 +265,66 @@ export default function DashboardPage() {
         <Col xs={24} md={8}>
           <div
             style={{
-              background: 'linear-gradient(135deg, #6366f1 0%, #818cf8 100%)',
+              background: "linear-gradient(135deg, #6366f1 0%, #818cf8 100%)",
               borderRadius: 16,
-              padding: '28px 24px',
-              height: '100%',
-              position: 'relative',
-              overflow: 'hidden',
-              boxShadow: '0 8px 24px rgba(99,102,241,0.3)',
+              padding: "28px 24px",
+              height: "100%",
+              position: "relative",
+              overflow: "hidden",
+              boxShadow: "0 8px 24px rgba(99,102,241,0.3)",
               minHeight: 140,
             }}
           >
             <div
               style={{
-                position: 'absolute',
+                position: "absolute",
                 bottom: -30,
                 right: -30,
                 width: 130,
                 height: 130,
-                borderRadius: '50%',
-                background: 'rgba(255,255,255,0.08)',
+                borderRadius: "50%",
+                background: "rgba(255,255,255,0.08)",
               }}
             />
             <div
               style={{
-                position: 'absolute',
+                position: "absolute",
                 bottom: 20,
                 right: 50,
                 width: 80,
                 height: 80,
-                borderRadius: '50%',
-                background: 'rgba(255,255,255,0.06)',
+                borderRadius: "50%",
+                background: "rgba(255,255,255,0.06)",
               }}
             />
-            <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 13 }}>
+            <Text style={{ color: "rgba(255,255,255,0.85)", fontSize: 13 }}>
               Tổng số dư — {periodLabel}
             </Text>
             <div
               style={{
-                color: 'white',
+                color: "white",
                 fontSize: 26,
                 fontWeight: 800,
-                margin: '8px 0 16px',
+                margin: "8px 0 16px",
               }}
             >
-              {periodLoading ? '...' : formatCurrency(profit)}
+              {periodLoading ? "..." : formatCurrency(profit)}
             </div>
             <div
               style={{
-                display: 'inline-flex',
-                alignItems: 'center',
+                display: "inline-flex",
+                alignItems: "center",
                 gap: 4,
-                background: 'rgba(255,255,255,0.2)',
+                background: "rgba(255,255,255,0.2)",
                 borderRadius: 20,
-                padding: '4px 12px',
+                padding: "4px 12px",
               }}
             >
-              <ArrowUpOutlined style={{ color: 'white', fontSize: 11 }} />
-              <span style={{ color: 'white', fontSize: 12 }}>
-                {profit >= 0 ? '+' : ''}
-                {income > 0 ? ((profit / income) * 100).toFixed(1) : '0'}%
-                lợi nhuận
+              <ArrowUpOutlined style={{ color: "white", fontSize: 11 }} />
+              <span style={{ color: "white", fontSize: 12 }}>
+                {profit >= 0 ? "+" : ""}
+                {income > 0 ? ((profit / income) * 100).toFixed(1) : "0"}% lợi
+                nhuận
               </span>
             </div>
           </div>
@@ -291,30 +333,32 @@ export default function DashboardPage() {
         <Col xs={24} md={8}>
           <div
             style={{
-              background: 'white',
+              background: "white",
               borderRadius: 16,
-              padding: '28px 24px',
-              height: '100%',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+              padding: "28px 24px",
+              height: "100%",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
               minHeight: 140,
             }}
           >
-            <Text style={{ color: '#94a3b8', fontSize: 13 }}>
+            <Text style={{ color: "#94a3b8", fontSize: 13 }}>
               Tổng thu nhập — {periodLabel}
             </Text>
             <div
               style={{
                 fontSize: 24,
                 fontWeight: 800,
-                color: '#0f172a',
-                margin: '8px 0 12px',
+                color: "#0f172a",
+                margin: "8px 0 12px",
               }}
             >
-              {periodLoading ? '...' : formatCurrency(income)}
+              {periodLoading ? "..." : formatCurrency(income)}
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <ArrowUpOutlined style={{ color: '#10b981', fontSize: 12 }} />
-              <Text style={{ color: '#10b981', fontSize: 13 }}>Thu nhập kỳ này</Text>
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <ArrowUpOutlined style={{ color: "#10b981", fontSize: 12 }} />
+              <Text style={{ color: "#10b981", fontSize: 13 }}>
+                Thu nhập kỳ này
+              </Text>
             </div>
           </div>
         </Col>
@@ -322,30 +366,32 @@ export default function DashboardPage() {
         <Col xs={24} md={8}>
           <div
             style={{
-              background: 'white',
+              background: "white",
               borderRadius: 16,
-              padding: '28px 24px',
-              height: '100%',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+              padding: "28px 24px",
+              height: "100%",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
               minHeight: 140,
             }}
           >
-            <Text style={{ color: '#94a3b8', fontSize: 13 }}>
+            <Text style={{ color: "#94a3b8", fontSize: 13 }}>
               Tổng chi tiêu — {periodLabel}
             </Text>
             <div
               style={{
                 fontSize: 24,
                 fontWeight: 800,
-                color: '#0f172a',
-                margin: '8px 0 12px',
+                color: "#0f172a",
+                margin: "8px 0 12px",
               }}
             >
-              {periodLoading ? '...' : formatCurrency(expense)}
+              {periodLoading ? "..." : formatCurrency(expense)}
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <ArrowDownOutlined style={{ color: '#ef4444', fontSize: 12 }} />
-              <Text style={{ color: '#ef4444', fontSize: 13 }}>Chi tiêu kỳ này</Text>
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <ArrowDownOutlined style={{ color: "#ef4444", fontSize: 12 }} />
+              <Text style={{ color: "#ef4444", fontSize: 13 }}>
+                Chi tiêu kỳ này
+              </Text>
             </div>
           </div>
         </Col>
@@ -356,45 +402,45 @@ export default function DashboardPage() {
         <Col xs={24} lg={16}>
           <div
             style={{
-              background: 'white',
+              background: "white",
               borderRadius: 16,
-              padding: '24px',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+              padding: "24px",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
             }}
           >
             <div
               style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
                 marginBottom: 20,
               }}
             >
               <Title level={5} style={{ margin: 0 }}>
                 Xu hướng Tài chính
               </Title>
-              <div style={{ display: 'flex', gap: 16 }}>
+              <div style={{ display: "flex", gap: 16 }}>
                 {[
-                  { label: 'Thu nhập', color: '#6366f1' },
-                  { label: 'Chi tiêu', color: '#cbd5e1' },
+                  { label: "Thu nhập", color: "#6366f1" },
+                  { label: "Chi tiêu", color: "#cbd5e1" },
                 ].map((item) => (
                   <span
                     key={item.label}
                     style={{
-                      display: 'flex',
-                      alignItems: 'center',
+                      display: "flex",
+                      alignItems: "center",
                       gap: 6,
                       fontSize: 13,
-                      color: '#64748b',
+                      color: "#64748b",
                     }}
                   >
                     <span
                       style={{
                         width: 10,
                         height: 10,
-                        borderRadius: '50%',
+                        borderRadius: "50%",
                         background: item.color,
-                        display: 'inline-block',
+                        display: "inline-block",
                       }}
                     />
                     {item.label}
@@ -418,15 +464,16 @@ export default function DashboardPage() {
                   dataKey="month"
                   axisLine={false}
                   tickLine={false}
-                  tick={{ fontSize: 11, fill: '#94a3b8' }}
+                  tick={{ fontSize: 11, fill: "#94a3b8" }}
+                  padding={{ left: 20, right: 20 }} 
                 />
                 <YAxis hide />
                 <Tooltip
                   formatter={(value) => formatCurrency(Number(value))}
                   contentStyle={{
                     borderRadius: 8,
-                    border: 'none',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                    border: "none",
+                    boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
                     fontSize: 13,
                   }}
                 />
@@ -437,7 +484,7 @@ export default function DashboardPage() {
                   strokeWidth={2.5}
                   fill="url(#incomeGrad)"
                   dot={false}
-                  activeDot={{ r: 5, fill: '#6366f1' }}
+                  activeDot={{ r: 5, fill: "#6366f1" }}
                 />
                 <Area
                   type="monotone"
@@ -446,7 +493,7 @@ export default function DashboardPage() {
                   strokeWidth={2}
                   fill="url(#expenseGrad)"
                   dot={false}
-                  activeDot={{ r: 4, fill: '#cbd5e1' }}
+                  activeDot={{ r: 4, fill: "#cbd5e1" }}
                 />
               </AreaChart>
             </ResponsiveContainer>
@@ -456,20 +503,20 @@ export default function DashboardPage() {
         <Col xs={24} lg={8}>
           <div
             style={{
-              background: 'white',
+              background: "white",
               borderRadius: 16,
-              padding: '24px',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-              height: '100%',
+              padding: "24px",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+              height: "100%",
             }}
           >
-            <Title level={5} style={{ margin: '0 0 4px' }}>
+            <Title level={5} style={{ margin: "0 0 4px" }}>
               Phân loại chi tiêu
             </Title>
-            <Text style={{ color: '#94a3b8', fontSize: 12 }}>
+            <Text style={{ color: "#94a3b8", fontSize: 12 }}>
               Dựa trên {dashData?.totalCustomers} khách hàng
             </Text>
-            <div style={{ position: 'relative', marginTop: 8 }}>
+            <div style={{ position: "relative", marginTop: 8 }}>
               <ResponsiveContainer width="100%" height={160}>
                 <PieChart>
                   <Pie
@@ -489,26 +536,26 @@ export default function DashboardPage() {
               </ResponsiveContainer>
               <div
                 style={{
-                  position: 'absolute',
-                  top: '50%',
-                  left: '50%',
-                  transform: 'translate(-50%, -50%)',
-                  textAlign: 'center',
-                  pointerEvents: 'none',
+                  position: "absolute",
+                  top: "50%",
+                  left: "50%",
+                  transform: "translate(-50%, -50%)",
+                  textAlign: "center",
+                  pointerEvents: "none",
                 }}
               >
                 <div
                   style={{
                     fontSize: 10,
-                    color: '#94a3b8',
-                    textTransform: 'uppercase',
+                    color: "#94a3b8",
+                    textTransform: "uppercase",
                     letterSpacing: 1,
                   }}
                 >
                   LỚN NHẤT
                 </div>
                 <div
-                  style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}
+                  style={{ fontSize: 13, fontWeight: 700, color: "#0f172a" }}
                 >
                   Thu nhập
                 </div>
@@ -519,34 +566,34 @@ export default function DashboardPage() {
                 <div
                   key={item.name}
                   style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    padding: '5px 0',
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    padding: "5px 0",
                   }}
                 >
                   <span
                     style={{
-                      display: 'flex',
-                      alignItems: 'center',
+                      display: "flex",
+                      alignItems: "center",
                       gap: 8,
                       fontSize: 13,
-                      color: '#64748b',
+                      color: "#64748b",
                     }}
                   >
                     <span
                       style={{
                         width: 8,
                         height: 8,
-                        borderRadius: '50%',
+                        borderRadius: "50%",
                         background: PIE_COLORS[i],
-                        display: 'inline-block',
+                        display: "inline-block",
                       }}
                     />
                     {item.name}
                   </span>
                   <span
-                    style={{ fontSize: 13, fontWeight: 600, color: '#0f172a' }}
+                    style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}
                   >
                     {totalPie > 0
                       ? ((item.value / totalPie) * 100).toFixed(0)
@@ -564,17 +611,17 @@ export default function DashboardPage() {
       {!isOwner && (
         <div
           style={{
-            background: 'white',
+            background: "white",
             borderRadius: 16,
-            padding: '24px',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+            padding: "24px",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
           }}
         >
           <div
             style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
               marginBottom: 16,
             }}
           >
@@ -583,60 +630,57 @@ export default function DashboardPage() {
             </Title>
             <Button
               type="link"
-              style={{ color: '#6366f1', padding: 0, fontWeight: 600 }}
-              onClick={() => router.push('/transactions')}
+              style={{ color: "#6366f1", padding: 0, fontWeight: 600 }}
+              onClick={() => router.push("/transactions")}
             >
               Xem tất cả
             </Button>
           </div>
 
           {transactions.length === 0 ? (
-            <Text style={{ color: '#94a3b8' }}>Chưa có giao dịch nào</Text>
+            <Text style={{ color: "#94a3b8" }}>Chưa có giao dịch nào</Text>
           ) : (
             transactions.map((tx) => (
               <div
                 key={tx.id}
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '12px 16px',
-                  background: '#f8fafc',
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "12px 16px",
+                  background: "#f8fafc",
                   borderRadius: 12,
                   marginBottom: 8,
                 }}
               >
-                <div
-                  style={{ display: 'flex', alignItems: 'center', gap: 12 }}
-                >
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                   <div
                     style={{
                       width: 44,
                       height: 44,
                       borderRadius: 12,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
                       fontSize: 20,
-                      background:
-                        tx.type === 'INCOME' ? '#eff6ff' : '#fef2f2',
+                      background: tx.type === "INCOME" ? "#eff6ff" : "#fef2f2",
                     }}
                   >
-                    {tx.type === 'INCOME' ? '💰' : '💸'}
+                    {tx.type === "INCOME" ? "💰" : "💸"}
                   </div>
                   <div>
                     <div
                       style={{
                         fontWeight: 600,
                         fontSize: 14,
-                        color: '#0f172a',
+                        color: "#0f172a",
                       }}
                     >
-                      {tx.note || tx.category?.name || 'Giao dịch'}
+                      {tx.note || tx.category?.name || "Giao dịch"}
                     </div>
-                    <div style={{ fontSize: 12, color: '#94a3b8' }}>
-                      {new Date(tx.transactionDate).toLocaleDateString('vi-VN')}{' '}
-                      • {tx.category?.name ?? ''}
+                    <div style={{ fontSize: 12, color: "#94a3b8" }}>
+                      {new Date(tx.transactionDate).toLocaleDateString("vi-VN")}{" "}
+                      • {tx.category?.name ?? ""}
                     </div>
                   </div>
                 </div>
@@ -644,10 +688,10 @@ export default function DashboardPage() {
                   style={{
                     fontWeight: 700,
                     fontSize: 15,
-                    color: tx.type === 'INCOME' ? '#10b981' : '#ef4444',
+                    color: tx.type === "INCOME" ? "#10b981" : "#ef4444",
                   }}
                 >
-                  {tx.type === 'INCOME' ? '+' : '-'}
+                  {tx.type === "INCOME" ? "+" : "-"}
                   {formatCurrency(Number(tx.amount))}
                 </div>
               </div>

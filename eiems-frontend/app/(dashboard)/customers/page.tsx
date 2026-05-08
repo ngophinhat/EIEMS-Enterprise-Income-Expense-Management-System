@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from "react";
 import {
   Table,
   Button,
@@ -12,7 +12,7 @@ import {
   Space,
   message,
   Descriptions,
-} from 'antd';
+} from "antd";
 import {
   PlusOutlined,
   EditOutlined,
@@ -20,19 +20,20 @@ import {
   SearchOutlined,
   PhoneOutlined,
   EnvironmentOutlined,
-} from '@ant-design/icons';
-import type { ColumnsType } from 'antd/es/table';
-import dayjs from 'dayjs';
-import api from '@/lib/axios';
-import type { Customer, Transaction, Role } from '@/types';
+} from "@ant-design/icons";
+import type { ColumnsType } from "antd/es/table";
+import dayjs from "dayjs";
+import api from "@/lib/axios";
+import type { Customer, Transaction, Role } from "@/types";
 
 const { Title, Text } = Typography;
 
 const formatCurrency = (amount: number) =>
-  new Intl.NumberFormat('vi-VN').format(amount) + 'đ';
+  new Intl.NumberFormat("vi-VN").format(amount) + "đ";
 
-const canEdit = (role: Role) => ['ADMIN', 'ACCOUNTANT', 'STAFF'].includes(role);
-const canCreate = (role: Role) => ['ADMIN', 'ACCOUNTANT', 'STAFF'].includes(role);
+const canEdit = (role: Role) => ["ADMIN", "ACCOUNTANT", "STAFF"].includes(role);
+const canCreate = (role: Role) =>
+  ["ADMIN", "ACCOUNTANT", "STAFF"].includes(role);
 
 interface CustomerWithCount extends Customer {
   _count: { transactions: number; debts: number };
@@ -47,7 +48,7 @@ export default function CustomersPage() {
   const [selectedCustomer, setSelectedCustomer] =
     useState<CustomerWithCount | null>(null);
   const [editing, setEditing] = useState<CustomerWithCount | null>(null);
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState("");
   const [currentUser, setCurrentUser] = useState<{
     id: string;
     role: Role;
@@ -55,7 +56,7 @@ export default function CustomersPage() {
   const [form] = Form.useForm();
 
   useEffect(() => {
-    const stored = localStorage.getItem('user');
+    const stored = localStorage.getItem("user");
     if (stored)
       setCurrentUser(JSON.parse(stored) as { id: string; role: Role });
     void fetchAll();
@@ -64,10 +65,10 @@ export default function CustomersPage() {
   const fetchAll = async () => {
     setLoading(true);
     try {
-      const res = await api.get<CustomerWithCount[]>('/customers');
+      const res = await api.get<CustomerWithCount[]>("/customers");
       setCustomers(res.data);
     } catch {
-      message.error('Không thể tải dữ liệu!');
+      message.error("Không thể tải dữ liệu!");
     } finally {
       setLoading(false);
     }
@@ -79,7 +80,7 @@ export default function CustomersPage() {
       setSelectedCustomer(res.data);
       setDetailOpen(true);
     } catch {
-      message.error('Không thể tải chi tiết!');
+      message.error("Không thể tải chi tiết!");
     }
   };
 
@@ -104,15 +105,15 @@ export default function CustomersPage() {
       const values = await form.validateFields();
       if (editing) {
         await api.patch(`/customers/${editing.id}`, values);
-        message.success('Cập nhật khách hàng thành công!');
+        message.success("Cập nhật khách hàng thành công!");
       } else {
-        await api.post('/customers', values);
-        message.success('Thêm khách hàng thành công!');
+        await api.post("/customers", values);
+        message.success("Thêm khách hàng thành công!");
       }
       setModalOpen(false);
       void fetchAll();
     } catch {
-      message.error('Có lỗi xảy ra!');
+      message.error("Có lỗi xảy ra!");
     }
   };
 
@@ -125,31 +126,31 @@ export default function CustomersPage() {
 
   const columns: ColumnsType<CustomerWithCount> = [
     {
-      title: 'Tên khách hàng',
-      dataIndex: 'name',
-      key: 'name',
+      title: "Tên khách hàng",
+      dataIndex: "name",
+      key: "name",
       render: (name: string) => <Text strong>{name}</Text>,
     },
     {
-      title: 'Số điện thoại',
-      dataIndex: 'phone',
-      key: 'phone',
+      title: "Số điện thoại",
+      dataIndex: "phone",
+      key: "phone",
       render: (phone: string) => (
         <span>
-          <PhoneOutlined style={{ marginRight: 6, color: '#6366f1' }} />
+          <PhoneOutlined style={{ marginRight: 6, color: "#6366f1" }} />
           {phone}
         </span>
       ),
     },
     {
-      title: 'Địa chỉ',
-      dataIndex: 'address',
-      key: 'address',
+      title: "Địa chỉ",
+      dataIndex: "address",
+      key: "address",
       ellipsis: true,
       render: (address: string) =>
         address ? (
           <span>
-            <EnvironmentOutlined style={{ marginRight: 6, color: '#f59e0b' }} />
+            <EnvironmentOutlined style={{ marginRight: 6, color: "#f59e0b" }} />
             {address}
           </span>
         ) : (
@@ -157,16 +158,16 @@ export default function CustomersPage() {
         ),
     },
     {
-      title: 'Số giao dịch',
-      key: 'transactions',
-      align: 'center',
+      title: "Số giao dịch",
+      key: "transactions",
+      align: "center",
       render: (_, record) => (
         <Tag color="blue">{record._count?.transactions ?? 0}</Tag>
       ),
     },
     {
-      title: 'Thao tác',
-      key: 'actions',
+      title: "Thao tác",
+      key: "actions",
       width: 100,
       render: (_, record) => (
         <Space>
@@ -175,7 +176,7 @@ export default function CustomersPage() {
             icon={<EyeOutlined />}
             onClick={() => void openDetail(record)}
           />
-          {canEdit(currentUser?.role ?? 'STAFF') && (
+          {canEdit(currentUser?.role ?? "STAFF") && (
             <Button
               size="small"
               icon={<EditOutlined />}
@@ -189,55 +190,55 @@ export default function CustomersPage() {
 
   const txColumns: ColumnsType<Transaction> = [
     {
-      title: 'Ngày',
-      dataIndex: 'transactionDate',
-      key: 'date',
+      title: "Ngày",
+      dataIndex: "transactionDate",
+      key: "date",
       width: 110,
-      render: (date: string) => dayjs(date).format('DD/MM/YYYY'),
+      render: (date: string) => dayjs(date).format("DD/MM/YYYY"),
     },
     {
-      title: 'Loại',
-      dataIndex: 'type',
-      key: 'type',
+      title: "Loại",
+      dataIndex: "type",
+      key: "type",
       width: 70,
       render: (type: string) =>
-        type === 'INCOME' ? (
+        type === "INCOME" ? (
           <Tag color="green">Thu</Tag>
         ) : (
           <Tag color="red">Chi</Tag>
         ),
     },
     {
-      title: 'Danh mục',
-      dataIndex: ['category', 'name'],
-      key: 'category',
+      title: "Danh mục",
+      dataIndex: ["category", "name"],
+      key: "category",
     },
     {
-      title: 'Nội dung',
-      dataIndex: 'note',
-      key: 'note',
+      title: "Nội dung",
+      dataIndex: "note",
+      key: "note",
       ellipsis: true,
       render: (note: string) => note || <Text type="secondary">—</Text>,
     },
     {
-      title: 'Người tạo',
-      dataIndex: ['createdBy', 'fullName'],
-      key: 'createdBy',
+      title: "Người tạo",
+      dataIndex: ["createdBy", "fullName"],
+      key: "createdBy",
       width: 120,
     },
     {
-      title: 'Số tiền',
-      dataIndex: 'amount',
-      key: 'amount',
-      align: 'right',
+      title: "Số tiền",
+      dataIndex: "amount",
+      key: "amount",
+      align: "right",
       render: (amount: number, record: Transaction) => (
         <span
           style={{
             fontWeight: 700,
-            color: record.type === 'INCOME' ? '#10b981' : '#ef4444',
+            color: record.type === "INCOME" ? "#10b981" : "#ef4444",
           }}
         >
-          {record.type === 'INCOME' ? '+' : '-'}
+          {record.type === "INCOME" ? "+" : "-"}
           {formatCurrency(Number(amount))}
         </span>
       ),
@@ -249,16 +250,17 @@ export default function CustomersPage() {
       {/* Header */}
       <div
         style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
           marginBottom: 20,
         }}
-      >
-      </div>
+      ></div>
 
       {/* Search */}
-      <div style={{ marginBottom: 16, marginTop: 16, display: 'flex', gap: 12 }}>
+      <div
+        style={{ marginBottom: 16, marginTop: 16, display: "flex", gap: 12 }}
+      >
         <Input
           placeholder="Tìm theo tên hoặc số điện thoại..."
           prefix={<SearchOutlined />}
@@ -266,13 +268,13 @@ export default function CustomersPage() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-        {canCreate(currentUser?.role ?? 'STAFF') && (
+        {canCreate(currentUser?.role ?? "STAFF") && (
           <Button
             type="primary"
             icon={<PlusOutlined />}
             style={{
-              background: '#6366f1',
-              borderColor: '#6366f1',
+              background: "#6366f1",
+              borderColor: "#6366f1",
               borderRadius: 8,
             }}
             onClick={openCreate}
@@ -289,33 +291,33 @@ export default function CustomersPage() {
         rowKey="id"
         loading={loading}
         pagination={{ pageSize: 10, showSizeChanger: true }}
-        style={{ borderRadius: 12, background: 'white' }}
+        style={{ borderRadius: 12, background: "white" }}
       />
 
       {/* Create/Edit Modal */}
       <Modal
-        title={editing ? 'Cập nhật khách hàng' : 'Thêm khách hàng mới'}
+        title={editing ? "Cập nhật khách hàng" : "Thêm khách hàng mới"}
         open={modalOpen}
         onOk={() => void handleSubmit()}
         onCancel={() => setModalOpen(false)}
-        okText={editing ? 'Cập nhật' : 'Thêm mới'}
+        okText={editing ? "Cập nhật" : "Thêm mới"}
         cancelText="Huỷ"
         okButtonProps={{
-          style: { background: '#6366f1', borderColor: '#6366f1' },
+          style: { background: "#6366f1", borderColor: "#6366f1" },
         }}
       >
         <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
           <Form.Item
             name="name"
             label="Tên khách hàng"
-            rules={[{ required: true, message: 'Nhập tên khách hàng!' }]}
+            rules={[{ required: true, message: "Nhập tên khách hàng!" }]}
           >
             <Input placeholder="VD: Nguyễn Văn A" />
           </Form.Item>
           <Form.Item
             name="phone"
             label="Số điện thoại"
-            rules={[{ required: true, message: 'Nhập số điện thoại!' }]}
+            rules={[{ required: true, message: "Nhập số điện thoại!" }]}
           >
             <Input placeholder="VD: 0901234567" />
           </Form.Item>
@@ -349,7 +351,7 @@ export default function CustomersPage() {
                 {selectedCustomer.phone}
               </Descriptions.Item>
               <Descriptions.Item label="Địa chỉ" span={2}>
-                {selectedCustomer.address || '—'}
+                {selectedCustomer.address || "—"}
               </Descriptions.Item>
               <Descriptions.Item label="Số giao dịch">
                 <Tag color="blue">
@@ -357,9 +359,7 @@ export default function CustomersPage() {
                 </Tag>
               </Descriptions.Item>
               <Descriptions.Item label="Số công nợ">
-                <Tag color="orange">
-                  {selectedCustomer._count?.debts ?? 0}
-                </Tag>
+                <Tag color="orange">{selectedCustomer._count?.debts ?? 0}</Tag>
               </Descriptions.Item>
             </Descriptions>
 

@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from "react";
 import {
   Table,
   Button,
@@ -15,7 +15,7 @@ import {
   message,
   InputNumber,
   Space,
-} from 'antd';
+} from "antd";
 import {
   PlusOutlined,
   EditOutlined,
@@ -23,26 +23,31 @@ import {
   SearchOutlined,
   EyeOutlined,
   UndoOutlined,
-} from '@ant-design/icons';
-import type { ColumnsType } from 'antd/es/table';
-import dayjs from 'dayjs';
-import api from '@/lib/axios';
-import type { Transaction, Category, Role, Customer } from '@/types';
+} from "@ant-design/icons";
+import type { ColumnsType } from "antd/es/table";
+import dayjs from "dayjs";
+import api from "@/lib/axios";
+import type { Transaction, Role, Customer } from "@/types";
 
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
 
 const formatCurrency = (amount: number) =>
-  new Intl.NumberFormat('vi-VN').format(amount) + 'đ';
+  new Intl.NumberFormat("vi-VN").format(amount) + "đ";
 
 // Phân quyền
 const canCreate = (role: Role) =>
-  ['ADMIN', 'ACCOUNTANT', 'STAFF'].includes(role);
+  ["ADMIN", "ACCOUNTANT", "STAFF"].includes(role);
 const canUpdate = (role: Role) =>
-  ['ADMIN', 'ACCOUNTANT', 'STAFF'].includes(role);
-const canArchive = (role: Role) =>
-  ['ADMIN', 'ACCOUNTANT'].includes(role);
-const isReadOnly = (role: Role) => role === 'OWNER';
+  ["ADMIN", "ACCOUNTANT", "STAFF"].includes(role);
+const canArchive = (role: Role) => ["ADMIN", "ACCOUNTANT"].includes(role);
+const isReadOnly = (role: Role) => role === "OWNER";
+
+interface Category {
+  id: string;
+  name: string;
+  type: string;
+}
 
 export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -53,7 +58,7 @@ export default function TransactionsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
-  const [selectedType, setSelectedType] = useState<string>('');
+  const [selectedType, setSelectedType] = useState<string>("");
   const [logs, setLogs] = useState<
     {
       id: string;
@@ -65,11 +70,11 @@ export default function TransactionsPage() {
     }[]
   >([]);
   const [editing, setEditing] = useState<Transaction | null>(null);
-  const [search, setSearch] = useState('');
-  const [typeFilter, setTypeFilter] = useState<string>('');
-  const [dateRange, setDateRange] = useState<
-    [dayjs.Dayjs, dayjs.Dayjs] | null
-  >(null);
+  const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState<string>("");
+  const [dateRange, setDateRange] = useState<[dayjs.Dayjs, dayjs.Dayjs] | null>(
+    null,
+  );
   const [currentUser, setCurrentUser] = useState<{
     id: string;
     role: Role;
@@ -78,26 +83,45 @@ export default function TransactionsPage() {
   const [form] = Form.useForm();
 
   useEffect(() => {
-    const stored = localStorage.getItem('user');
-    if (stored)
-      setCurrentUser(
-        JSON.parse(stored) as { id: string; role: Role; fullName: string },
-      );
-    void fetchAll(
-      stored
-        ? (JSON.parse(stored) as { role: Role }).role
-        : 'STAFF',
-    );
+    const stored = localStorage.getItem("user");
+    const user = stored ? (JSON.parse(stored) as { id: string; role: Role; fullName: string }) : null;
+    if (user) setCurrentUser(user);
+    
+    const initFetchAll = async () => {
+      const currentRole = user?.role ?? "STAFF";
+      setLoading(true);
+      try {
+        const [txRes, catRes, cusRes] = await Promise.all([
+          api.get<Transaction[]>("/transactions"),
+          api.get<Category[]>("/categories"),
+          api.get<Customer[]>("/customers"),
+        ]);
+        setTransactions(txRes.data);
+        setCategories(catRes.data);
+        setCustomers(cusRes.data);
+
+        if (canArchive(currentRole)) {
+          const archRes = await api.get<Transaction[]>("/transactions/archived");
+          setArchived(archRes.data);
+        }
+      } catch {
+        message.error("Không thể tải dữ liệu!");
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    void initFetchAll();
   }, []);
 
   const fetchAll = async (role?: Role) => {
-    const currentRole = role ?? currentUser?.role ?? 'STAFF';
+    const currentRole = role ?? currentUser?.role ?? "STAFF";
     setLoading(true);
     try {
       const [txRes, catRes, cusRes] = await Promise.all([
-        api.get<Transaction[]>('/transactions'),
-        api.get<Category[]>('/categories'),
-        api.get<Customer[]>('/customers'),
+        api.get<Transaction[]>("/transactions"),
+        api.get<Category[]>("/categories"),
+        api.get<Customer[]>("/customers"),
       ]);
       setTransactions(txRes.data);
       setCategories(catRes.data);
@@ -105,19 +129,19 @@ export default function TransactionsPage() {
 
       // Chỉ fetch archived nếu có quyền
       if (canArchive(currentRole)) {
-        const archRes = await api.get<Transaction[]>('/transactions/archived');
+        const archRes = await api.get<Transaction[]>("/transactions/archived");
         setArchived(archRes.data);
       }
     } catch {
-      message.error('Không thể tải dữ liệu!');
+      message.error("Không thể tải dữ liệu!");
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   const openCreate = () => {
     setEditing(null);
-    setSelectedType('');
+    setSelectedType("");
     form.resetFields();
     setModalOpen(true);
   };
@@ -129,7 +153,7 @@ export default function TransactionsPage() {
       type: tx.type,
       amount: Number(tx.amount),
       note: tx.note,
-      categoryId: tx.categoryId,
+      categoryId: tx.category,
       transactionDate: dayjs(tx.transactionDate),
     });
     setModalOpen(true);
@@ -158,34 +182,34 @@ export default function TransactionsPage() {
 
       if (editing) {
         await api.patch(`/transactions/${editing.id}`, payload);
-        message.success('Cập nhật giao dịch thành công!');
+        message.success("Cập nhật giao dịch thành công!");
       } else {
-        await api.post('/transactions', payload);
-        message.success('Tạo giao dịch thành công!');
+        await api.post("/transactions", payload);
+        message.success("Tạo giao dịch thành công!");
       }
 
       setModalOpen(false);
       void fetchAll();
     } catch {
-      message.error('Có lỗi xảy ra!');
+      message.error("Có lỗi xảy ra!");
     }
   };
 
   const handleArchive = (tx: Transaction) => {
     Modal.confirm({
-      title: 'Lưu trữ giao dịch?',
+      title: "Lưu trữ giao dịch?",
       content:
-        'Giao dịch sẽ được lưu trữ và không hiển thị trong danh sách chính.',
-      okText: 'Lưu trữ',
-      cancelText: 'Huỷ',
+        "Giao dịch sẽ được lưu trữ và không hiển thị trong danh sách chính.",
+      okText: "Lưu trữ",
+      cancelText: "Huỷ",
       okButtonProps: { danger: true },
       onOk: async () => {
         try {
           await api.patch(`/transactions/${tx.id}/archive`);
-          message.success('Đã lưu trữ giao dịch!');
+          message.success("Đã lưu trữ giao dịch!");
           void fetchAll();
         } catch {
-          message.error('Có lỗi xảy ra!');
+          message.error("Có lỗi xảy ra!");
         }
       },
     });
@@ -200,86 +224,86 @@ export default function TransactionsPage() {
       const matchType = !typeFilter || tx.type === typeFilter;
       const matchDate =
         !dateRange ||
-        (dayjs(tx.transactionDate).isAfter(dateRange[0].startOf('day')) &&
-          dayjs(tx.transactionDate).isBefore(dateRange[1].endOf('day')));
+        (dayjs(tx.transactionDate).isAfter(dateRange[0].startOf("day")) &&
+          dayjs(tx.transactionDate).isBefore(dateRange[1].endOf("day")));
       return matchSearch && matchType && matchDate;
     });
 
   const actionLabel: Record<string, string> = {
-    CREATE: 'Tạo mới',
-    UPDATE: 'Cập nhật',
-    ARCHIVE: 'Lưu trữ',
+    CREATE: "Tạo mới",
+    UPDATE: "Cập nhật",
+    ARCHIVE: "Lưu trữ",
   };
 
   const columns: ColumnsType<Transaction> = [
     {
-      title: 'Ngày',
-      dataIndex: 'transactionDate',
-      key: 'date',
+      title: "Ngày",
+      dataIndex: "transactionDate",
+      key: "date",
       width: 110,
-      render: (date: string) => dayjs(date).format('DD/MM/YYYY'),
+      render: (date: string) => dayjs(date).format("DD/MM/YYYY"),
       sorter: (a, b) =>
         dayjs(a.transactionDate).unix() - dayjs(b.transactionDate).unix(),
     },
     {
-      title: 'Loại',
-      dataIndex: 'type',
-      key: 'type',
+      title: "Loại",
+      dataIndex: "type",
+      key: "type",
       width: 80,
       render: (type: string) =>
-        type === 'INCOME' ? (
+        type === "INCOME" ? (
           <Tag color="green">Thu</Tag>
         ) : (
           <Tag color="red">Chi</Tag>
         ),
     },
     {
-      title: 'Danh mục',
-      dataIndex: ['category', 'name'],
-      key: 'category',
+      title: "Danh mục",
+      dataIndex: ["category", "name"],
+      key: "category",
       width: 120,
       ellipsis: true,
     },
     {
-      title: 'Nội dung',
-      dataIndex: 'note',
-      key: 'note',
+      title: "Nội dung",
+      dataIndex: "note",
+      key: "note",
       render: (note: string) => note || <Text type="secondary">—</Text>,
     },
     {
-      title: 'Số tiền',
-      dataIndex: 'amount',
-      key: 'amount',
-      align: 'right',
+      title: "Số tiền",
+      dataIndex: "amount",
+      key: "amount",
+      align: "right",
       render: (amount: number, record: Transaction) => (
         <span
           style={{
             fontWeight: 700,
-            color: record.type === 'INCOME' ? '#10b981' : '#ef4444',
+            color: record.type === "INCOME" ? "#10b981" : "#ef4444",
           }}
         >
-          {record.type === 'INCOME' ? '+' : '-'}
+          {record.type === "INCOME" ? "+" : "-"}
           {formatCurrency(Number(amount))}
         </span>
       ),
     },
     {
-      title: 'Người tạo',
-      dataIndex: ['createdBy', 'fullName'],
-      key: 'createdBy',
+      title: "Người tạo",
+      dataIndex: ["createdBy", "fullName"],
+      key: "createdBy",
       width: 130,
     },
     {
-      title: 'Khách hàng',
-      dataIndex: ['customer', 'name'],
-      key: 'customer',
+      title: "Khách hàng",
+      dataIndex: ["customer", "name"],
+      key: "customer",
       width: 150,
       ellipsis: true,
       render: (name: string) => name || <Text type="secondary">—</Text>,
     },
     {
-      title: 'Thao tác',
-      key: 'actions',
+      title: "Thao tác",
+      key: "actions",
       width: 120,
       render: (_, record) => (
         <Space>
@@ -290,8 +314,8 @@ export default function TransactionsPage() {
             onClick={() => void openDetail(record)}
           />
           {/* STAFF, ACCOUNTANT, ADMIN mới edit được */}
-          {canUpdate(currentUser?.role ?? 'STAFF') &&
-            !isReadOnly(currentUser?.role ?? 'STAFF') && (
+          {canUpdate(currentUser?.role ?? "STAFF") &&
+            !isReadOnly(currentUser?.role ?? "STAFF") && (
               <Button
                 size="small"
                 icon={<EditOutlined />}
@@ -299,7 +323,7 @@ export default function TransactionsPage() {
               />
             )}
           {/* Chỉ ADMIN và ACCOUNTANT mới lưu trữ được */}
-          {canArchive(currentUser?.role ?? 'STAFF') && (
+          {canArchive(currentUser?.role ?? "STAFF") && (
             <Button
               size="small"
               danger
@@ -315,35 +339,34 @@ export default function TransactionsPage() {
   const archivedColumns: ColumnsType<Transaction> = [
     ...columns.slice(0, 6),
     {
-      title: 'Lưu trữ bởi',
-      dataIndex: ['deletedBy', 'fullName'],
-      key: 'deletedBy',
+      title: "Lưu trữ bởi",
+      dataIndex: ["deletedBy", "fullName"],
+      key: "deletedBy",
       width: 130,
     },
     {
-      title: 'Ngày lưu trữ',
-      dataIndex: 'deletedAt',
-      key: 'deletedAt',
+      title: "Ngày lưu trữ",
+      dataIndex: "deletedAt",
+      key: "deletedAt",
       width: 120,
-      render: (date: string) =>
-        date ? dayjs(date).format('DD/MM/YYYY') : '—',
+      render: (date: string) => (date ? dayjs(date).format("DD/MM/YYYY") : "—"),
     },
     {
-      title: 'Thao tác',
-      key: 'actions',
+      title: "Thao tác",
+      key: "actions",
       width: 120,
       render: (_, record) => (
         <Button
           size="small"
           icon={<UndoOutlined />}
-          style={{ borderColor: '#10b981', color: '#10b981' }}
+          style={{ borderColor: "#10b981", color: "#10b981" }}
           onClick={async () => {
             try {
               await api.patch(`/transactions/${record.id}/unarchive`);
-              message.success('Đã khôi phục giao dịch!');
+              message.success("Đã khôi phục giao dịch!");
               void fetchAll();
             } catch {
-              message.error('Có lỗi xảy ra!');
+              message.error("Có lỗi xảy ra!");
             }
           }}
         >
@@ -357,10 +380,10 @@ export default function TransactionsPage() {
     <div>
       {/* Header */}
       <div style={{ marginBottom: 20 }}>
-        <Title level={4} style={{ margin: 0, color: '#0f172a' }}>
+        <Title level={4} style={{ margin: 0, color: "#0f172a" }}>
           Quản lý Thu Chi
         </Title>
-        <Text style={{ color: '#94a3b8', fontSize: 13 }}>
+        <Text style={{ color: "#94a3b8", fontSize: 13 }}>
           Danh sách tất cả giao dịch trong hệ thống
         </Text>
       </div>
@@ -368,10 +391,10 @@ export default function TransactionsPage() {
       {/* Filters */}
       <div
         style={{
-          display: 'flex',
+          display: "flex",
           gap: 10,
           marginBottom: 16,
-          flexWrap: 'wrap',
+          flexWrap: "wrap",
         }}
       >
         <Input
@@ -386,10 +409,10 @@ export default function TransactionsPage() {
           style={{ width: 150, borderRadius: 8 }}
           allowClear
           value={typeFilter || undefined}
-          onChange={(val) => setTypeFilter(val ?? '')}
+          onChange={(val) => setTypeFilter(val ?? "")}
           options={[
-            { value: 'INCOME', label: 'Thu nhập' },
-            { value: 'EXPENSE', label: 'Chi tiêu' },
+            { value: "INCOME", label: "Thu nhập" },
+            { value: "EXPENSE", label: "Chi tiêu" },
           ]}
         />
         <RangePicker
@@ -397,20 +420,18 @@ export default function TransactionsPage() {
           format="DD/MM/YYYY"
           onChange={(dates) =>
             setDateRange(
-              dates
-                ? [dates[0] as dayjs.Dayjs, dates[1] as dayjs.Dayjs]
-                : null,
+              dates ? [dates[0] as dayjs.Dayjs, dates[1] as dayjs.Dayjs] : null,
             )
           }
         />
         {/* Chỉ STAFF, ACCOUNTANT, ADMIN mới tạo được */}
-        {canCreate(currentUser?.role ?? 'STAFF') && (
+        {canCreate(currentUser?.role ?? "STAFF") && (
           <Button
             type="primary"
             icon={<PlusOutlined />}
             style={{
-              background: '#6366f1',
-              borderColor: '#6366f1',
+              background: "#6366f1",
+              borderColor: "#6366f1",
               borderRadius: 8,
             }}
             onClick={openCreate}
@@ -425,7 +446,7 @@ export default function TransactionsPage() {
         defaultActiveKey="active"
         items={[
           {
-            key: 'active',
+            key: "active",
             label: `Hoạt động (${filterTx(transactions).length})`,
             children: (
               <Table
@@ -439,10 +460,10 @@ export default function TransactionsPage() {
             ),
           },
           // Chỉ ADMIN và ACCOUNTANT mới thấy tab lưu trữ
-          ...(canArchive(currentUser?.role ?? 'STAFF')
+          ...(canArchive(currentUser?.role ?? "STAFF")
             ? [
                 {
-                  key: 'archived',
+                  key: "archived",
                   label: `Lưu trữ (${archived.length})`,
                   children: (
                     <Table
@@ -462,47 +483,47 @@ export default function TransactionsPage() {
 
       {/* Create/Edit Modal */}
       <Modal
-        title={editing ? 'Cập nhật giao dịch' : 'Thêm giao dịch mới'}
+        title={editing ? "Cập nhật giao dịch" : "Thêm giao dịch mới"}
         open={modalOpen}
         onOk={() => void handleSubmit()}
         onCancel={() => {
           setModalOpen(false);
-          setSelectedType('');
+          setSelectedType("");
         }}
-        okText={editing ? 'Cập nhật' : 'Tạo mới'}
+        okText={editing ? "Cập nhật" : "Tạo mới"}
         cancelText="Huỷ"
         okButtonProps={{
-          style: { background: '#6366f1', borderColor: '#6366f1' },
+          style: { background: "#6366f1", borderColor: "#6366f1" },
         }}
       >
         <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
           <Form.Item
             name="type"
             label="Loại giao dịch"
-            rules={[{ required: true, message: 'Chọn loại giao dịch!' }]}
+            rules={[{ required: true, message: "Chọn loại giao dịch!" }]}
           >
             <Select
               options={[
-                { value: 'INCOME', label: '📈 Thu nhập' },
-                { value: 'EXPENSE', label: '📉 Chi tiêu' },
+                { value: "INCOME", label: "📈 Thu nhập" },
+                { value: "EXPENSE", label: "📉 Chi tiêu" },
               ]}
               onChange={(val) => {
                 setSelectedType(val as string);
-                form.setFieldValue('categoryId', undefined);
+                form.setFieldValue("categoryId", undefined);
               }}
             />
           </Form.Item>
           <Form.Item
             name="amount"
             label="Số tiền (VNĐ)"
-            rules={[{ required: true, message: 'Nhập số tiền!' }]}
+            rules={[{ required: true, message: "Nhập số tiền!" }]}
           >
             <InputNumber
-              style={{ width: '100%' }}
+              style={{ width: "100%" }}
               formatter={(value) =>
-                `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+                `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
               }
-              min={1}
+              min={0}
               placeholder="VD: 500000"
             />
           </Form.Item>
@@ -512,33 +533,39 @@ export default function TransactionsPage() {
               options={categories
                 .filter((c) => !selectedType || c.type === selectedType)
                 .map((c) => ({ value: c.id, label: c.name }))}
-              placeholder={selectedType ? 'Chọn danh mục' : 'Chọn loại giao dịch trước'}
+              placeholder={
+                selectedType ? "Chọn danh mục" : "Chọn loại giao dịch trước"
+              }
               disabled={!selectedType}
               filterOption={(input, option) =>
-                (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                (option?.label ?? "")
+                  .toLowerCase()
+                  .includes(input.toLowerCase())
               }
             />
           </Form.Item>
-          <Form.Item name="customerId" label="Khách hàng">
-            <Select
-              showSearch
-              options={customers.map((c) => ({
-                value: c.id,
-                label: c.name,
-              }))}
-              placeholder="Tìm hoặc chọn khách hàng (tuỳ chọn)"
-              allowClear
-              filterOption={(input, option) =>
-                (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-              }
-            />
-          </Form.Item>
+              {selectedType !== 'EXPENSE' && (
+                <Form.Item name="customerId" label="Khách hàng">
+                  <Select
+                    showSearch
+                    options={customers.map((c) => ({
+                      value: c.id,
+                      label: `${c.name} - ${c.address} - ${c.phone}`,
+                    }))}
+                    placeholder="Tìm hoặc chọn khách hàng (tuỳ chọn)"
+                    allowClear
+                    filterOption={(input, option) =>
+                      (option?.label ?? "").toLowerCase().includes(input.toLowerCase())
+                    }
+                  />
+                </Form.Item>
+              )}
           <Form.Item
             name="transactionDate"
             label="Ngày giao dịch"
-            rules={[{ required: true, message: 'Chọn ngày!' }]}
+            rules={[{ required: true, message: "Chọn ngày!" }]}
           >
-            <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" />
+            <DatePicker style={{ width: "100%" }} format="DD/MM/YYYY" />
           </Form.Item>
           <Form.Item name="note" label="Ghi chú">
             <Input.TextArea rows={3} placeholder="Ghi chú (tuỳ chọn)" />
@@ -558,7 +585,7 @@ export default function TransactionsPage() {
           <div>
             <div
               style={{
-                background: '#f8fafc',
+                background: "#f8fafc",
                 borderRadius: 10,
                 padding: 16,
                 marginBottom: 16,
@@ -566,20 +593,20 @@ export default function TransactionsPage() {
             >
               <div
                 style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
+                  display: "flex",
+                  justifyContent: "space-between",
                   marginBottom: 8,
                 }}
               >
                 <Text type="secondary">Loại</Text>
-                <Tag color={selectedTx.type === 'INCOME' ? 'green' : 'red'}>
-                  {selectedTx.type === 'INCOME' ? 'Thu nhập' : 'Chi tiêu'}
+                <Tag color={selectedTx.type === "INCOME" ? "green" : "red"}>
+                  {selectedTx.type === "INCOME" ? "Thu nhập" : "Chi tiêu"}
                 </Tag>
               </div>
               <div
                 style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
+                  display: "flex",
+                  justifyContent: "space-between",
                   marginBottom: 8,
                 }}
               >
@@ -587,18 +614,17 @@ export default function TransactionsPage() {
                 <Text
                   strong
                   style={{
-                    color:
-                      selectedTx.type === 'INCOME' ? '#10b981' : '#ef4444',
+                    color: selectedTx.type === "INCOME" ? "#10b981" : "#ef4444",
                   }}
                 >
-                  {selectedTx.type === 'INCOME' ? '+' : '-'}
+                  {selectedTx.type === "INCOME" ? "+" : "-"}
                   {formatCurrency(Number(selectedTx.amount))}
                 </Text>
               </div>
               <div
                 style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
+                  display: "flex",
+                  justifyContent: "space-between",
                   marginBottom: 8,
                 }}
               >
@@ -607,17 +633,17 @@ export default function TransactionsPage() {
               </div>
               <div
                 style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
+                  display: "flex",
+                  justifyContent: "space-between",
                   marginBottom: 8,
                 }}
               >
                 <Text type="secondary">Ngày</Text>
                 <Text>
-                  {dayjs(selectedTx.transactionDate).format('DD/MM/YYYY')}
+                  {dayjs(selectedTx.transactionDate).format("DD/MM/YYYY")}
                 </Text>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
                 <Text type="secondary">Người tạo</Text>
                 <Text>{selectedTx.createdBy?.fullName}</Text>
               </div>
@@ -632,20 +658,20 @@ export default function TransactionsPage() {
                 <div
                   key={log.id}
                   style={{
-                    borderLeft: '3px solid #6366f1',
+                    borderLeft: "3px solid #6366f1",
                     paddingLeft: 12,
                     marginBottom: 12,
                   }}
                 >
                   <div
                     style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
+                      display: "flex",
+                      justifyContent: "space-between",
                     }}
                   >
                     <Tag color="purple">{actionLabel[log.action]}</Tag>
                     <Text type="secondary" style={{ fontSize: 12 }}>
-                      {dayjs(log.createdAt).format('DD/MM/YYYY HH:mm')}
+                      {dayjs(log.createdAt).format("DD/MM/YYYY HH:mm")}
                     </Text>
                   </div>
                   <Text style={{ fontSize: 13 }}>
@@ -667,7 +693,7 @@ export default function TransactionsPage() {
                                 <Text delete type="danger">
                                   {String(from)}
                                 </Text>
-                                {' → '}
+                                {" → "}
                                 <Text type="success">{String(to)}</Text>
                               </div>
                             );

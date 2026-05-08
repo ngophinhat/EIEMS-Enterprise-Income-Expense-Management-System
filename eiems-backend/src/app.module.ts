@@ -11,7 +11,9 @@ import { TransactionsModule } from './transactions/transactions.module';
 import { ConfigModule } from '@nestjs/config';
 import { TaxModule } from './tax/tax.module';
 import { AuthModule } from './auth/auth.module';
-
+import { CakeProductModule } from './cake-product/cake-product.module';
+import { SalesOrderModule } from './sales-order/sales-order.module';
+import { NotificationModule } from './notification/notification.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -27,6 +29,9 @@ import { AuthModule } from './auth/auth.module';
     TransactionsModule,
     TaxModule,
     AuthModule,
+    CakeProductModule,
+    SalesOrderModule,
+    NotificationModule,
   ],
   controllers: [AppController],
 })
